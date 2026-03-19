@@ -518,7 +518,7 @@ body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--bg);color:var(--
 // ========================================
 // 비밀번호 — 여기서 변경하세요
 // ========================================
-const PASSWORD = '6063';
+const PASSWORD = '1234';
 // ========================================
 
 // ===== 잠금 =====
@@ -675,9 +675,10 @@ function lResetDraw(){
   const bn=document.createElement('div');bn.className='ball lg empty';bn.style.opacity='0.4';bn.textContent='?';el.appendChild(bn);
 }
 function randLotto(){
+  // 실제 추첨처럼 완전 랜덤 순서 (정렬 없음)
   const pool=Array.from({length:45},(_,i)=>i+1); const p=[];
   while(p.length<6){const i=Math.floor(Math.random()*pool.length);p.push(pool.splice(i,1)[0]);}
-  return p.sort((a,b)=>a-b);
+  return p; // 뽑힌 순서 그대로
 }
 function lStartDraw(){
   if(lDrawRunning) return; lDrawRunning=true;
@@ -707,21 +708,35 @@ function lDrawBall(nums,bonus,idx){
   const labels=['1번째','2번째','3번째','4번째','5번째','6번째','보너스'];
   document.getElementById('ldLabel').textContent=labels[idx]+' 번호';
   document.getElementById('ldStatus').textContent=labels[idx]+' 공 추첨 중...';
-  target.classList.remove('empty'); target.classList.add('spinning'); target.style.opacity='1';
+  // 스피닝 시작 - 색은 일단 비워두고 회전만
+  target.classList.remove('empty','b1','b2','b3','b4','b5');
+  target.classList.add('spinning');
+  target.style.opacity='1';
+  target.style.background='var(--border2)';
+  target.style.color='var(--bg2)';
   let e=0; const T=4000;
   const tick=()=>{
     e+=100; document.getElementById('ldBar').style.width=Math.min(e/T*100,100)+'%';
     document.getElementById('ldSec').textContent=Math.ceil((T-e)/1000)+'s';
-    const r=Math.floor(Math.random()*45)+1; target.textContent=r<10?'0'+r:r;
+    // 스피닝 중 랜덤 숫자 + 해당 번호 색상 힌트
+    const r=Math.floor(Math.random()*45)+1;
+    target.textContent=r<10?'0'+r:r;
+    target.style.background=bchex(r); // 스피닝 중에도 색이 계속 바뀜
     if(e<T) lDrawT=setTimeout(tick,100);
     else {
-      target.classList.remove('spinning'); target.classList.add(bc(val),'landed');
+      // 확정 - 실제 번호의 색상으로 고정
+      target.classList.remove('spinning');
+      target.classList.add('landed');
+      target.style.background=bchex(val);
+      target.style.color='#fff';
       target.textContent=val<10?'0'+val:val;
       if(idx<6) lDrawT=setTimeout(()=>lDrawBall(nums,bonus,idx+1),400);
       else {
         document.getElementById('ldLabel').textContent='추첨 완료';
         document.getElementById('ldSec').textContent='';
-        document.getElementById('ldStatus').textContent=`당첨번호: ${nums.map(n=>n<10?'0'+n:n).join('  ')}  +  보너스 ${bonus<10?'0'+bonus:bonus}`;
+        // 완료 시 번호 정렬해서 표시
+        const sorted=[...nums].sort((a,b)=>a-b);
+        document.getElementById('ldStatus').textContent=`당첨번호: ${sorted.map(n=>n<10?'0'+n:n).join('  ')}  +  보너스 ${bonus<10?'0'+bonus:bonus}`;
         document.getElementById('lDrawBtn').disabled=false; document.getElementById('lDrawBtn').textContent='▶ 다시 추첨'; lDrawRunning=false;
       }
     }
