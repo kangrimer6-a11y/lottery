@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>복권 시뮬레이터</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f7f6f2; --bg2:#ffffff; --border:#e2e0d8; --border2:#d0cdc4;
+  --text:#1c1b18; --muted:#888580; --muted2:#b8b4ac;
+  --red:#d63030; --blue:#2b6cb0; --gold:#c8920a; --gold2:#a87608;
+  --green:#276749; --gray:#64686e; --orange:#d65a10;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ===== 잠금 화면 ===== */
+#lockScreen {
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+}
+.lock-box {
+  width:100%;max-width:340px;padding:0 20px;text-align:center;
+}
+.lock-icon { font-size:40px;margin-bottom:20px; }
+.lock-title { font-size:22px;font-weight:700;margin-bottom:6px; }
+.lock-sub { font-size:12px;color:var(--muted);margin-bottom:28px; }
+.lock-dots { display:flex;justify-content:center;gap:12px;margin-bottom:24px; }
+.lock-dot {
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid var(--border2);background:var(--bg);
+  transition:all 0.2s;
+}
+.lock-dot.filled { background:var(--text);border-color:var(--text); }
+.lock-dot.error { background:var(--red);border-color:var(--red);animation:shake 0.3s; }
+.keypad { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto; }
+.key {
+  aspect-ratio:1;background:var(--bg2);border:1px solid var(--border);
+  font-size:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.12s;user-select:none;
+}
+.key:hover{background:var(--border);}
+.key:active{transform:scale(0.94);}
+.key.del{font-size:14px;color:var(--muted);}
+.key.empty{background:transparent;border-color:transparent;cursor:default;}
+.lock-msg{font-size:11px;color:var(--red);margin-top:14px;min-height:16px;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ===== 메인 앱 ===== */
+.wrap{max-width:700px;margin:0 auto;padding:20px 14px 80px;}
+
+/* 헤더 */
+.app-header{display:flex;justify-content:space-between;align-items:flex-end;padding:22px 0 18px;border-bottom:2px solid var(--text);margin-bottom:18px;}
+.ah-left .ah-sub{font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;}
+.ah-left h1{font-size:21px;font-weight:700;}
+.ah-right{display:flex;gap:8px;align-items:center;}
+
+/* 앱 탭 (로또/연금) */
+.app-tabs{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);}
+.app-tab{flex:1;padding:13px 8px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);transition:all 0.18s;letter-spacing:0.3px;}
+.app-tab.active{background:var(--text);color:#fff;}
+.app-tab:hover:not(.active){background:var(--border);}
+.app-view{display:none;}.app-view.active{display:block;}
+
+/* 로딩 */
+.load-wrap{margin-bottom:14px;}
+.load-bg{height:2px;background:var(--border);}
+.load-fill{height:2px;background:var(--red);width:0%;transition:width 0.2s;}
+.load-text{font-size:11px;color:var(--muted);margin-top:5px;text-align:center;}
+
+/* 내부 탭 */
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.tab{flex:1;padding:11px 4px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;color:var(--muted2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.18s;letter-spacing:0.3px;}
+.tab.active{color:var(--text);border-bottom-color:var(--text);}
+.tab:hover{color:var(--muted);}
+.panel{display:none;}.panel.active{display:block;}
+
+/* 카드 */
+.card{background:var(--bg2);border:1px solid var(--border);padding:18px;margin-bottom:12px;}
+.sec-label{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;}
+.divider{height:1px;background:var(--border);margin:16px 0;}
+
+/* 공 (로또) */
+.ball{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:600;color:#fff;flex-shrink:0;transition:all 0.25s;}
+.ball.lg{width:44px;height:44px;font-size:14px;}
+.ball.md{width:34px;height:34px;font-size:12px;}
+.ball.sm{width:28px;height:28px;font-size:10px;}
+.ball.xs{width:22px;height:22px;font-size:8px;}
+.ball.empty{background:var(--bg);border:2px dashed var(--border2);color:var(--muted2);}
+.ball.dim{opacity:0.18;}
+.ball.spinning{animation:bs 0.08s infinite;}
+.ball.landed{animation:bl 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+.b1{background:#e6a817;}.b2{background:#3a82d6;}.b3{background:#d63030;}.b4{background:#64686e;}.b5{background:#2a8f52;}
+@keyframes bs{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+@keyframes bl{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+.balls-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.plus{font-size:14px;color:var(--muted2);margin:0 2px;}
+
+/* 연금복권 추첨 */
+.draw-stage{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin:16px 0;}
+.draw-jo{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;background:var(--text);color:#fff;padding:10px 12px;min-width:48px;text-align:center;transition:background 0.3s;}
+.draw-jo.spin{background:var(--gold);}
+.sep{font-size:18px;color:var(--border2);}
+.d-ball{width:46px;height:46px;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--muted2);transition:all 0.25s;}
+.d-ball.spinning{border-color:var(--gold);color:var(--gold);animation:ds 0.08s infinite;}
+.d-ball.done-ball{border-color:var(--text);color:var(--text);background:var(--bg2);animation:db 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes ds{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes db{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+/* 버튼 */
+.btn-row{display:flex;gap:7px;flex-wrap:wrap;}
+.btn{padding:10px 16px;font-family:'IBM Plex Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--text);transition:all 0.15s;}
+.btn-fill{background:var(--text);color:#fff;}.btn-fill:hover{background:#333;}
+.btn-ghost{background:var(--bg2);color:var(--text);}.btn-ghost:hover{background:var(--bg);}
+.btn-red{background:var(--red);color:#fff;border-color:var(--red);}.btn-red:hover{background:#b52020;}
+.btn-gold{background:var(--gold);color:#fff;border-color:var(--gold);}.btn-gold:hover{background:var(--gold2);}
+.btn-sm{padding:7px 12px;font-size:11px;}
+.btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* 타이머 */
+.t-wrap{margin-bottom:14px;}
+.t-top{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;}
+.t-top .tl{font-weight:700;color:var(--text);}
+.t-top .ts{color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.t-bg{height:2px;background:var(--border);}
+.t-bar{height:2px;width:0%;transition:width 0.1s linear;}
+.t-bar.red{background:var(--red);}
+.t-bar.gold{background:var(--gold);}
+.t-status{font-size:11px;color:var(--muted);margin-top:5px;min-height:16px;}
+.t-status.on{color:var(--text);font-weight:600;}
+
+/* 번호피커 */
+.picker{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;}
+.pb{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted2);display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
+.pb:hover{border-color:var(--border2);color:var(--muted);}
+.pb.sel{color:#fff;border-color:transparent;}
+.sel-row{display:flex;gap:5px;align-items:center;min-height:42px;padding:7px 10px;background:var(--bg);border:1px dashed var(--border2);margin-bottom:10px;flex-wrap:wrap;}
+.sel-hint{font-size:11px;color:var(--muted2);}
+
+/* 분석 */
+.analysis-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+@media(min-width:500px){.analysis-summary{grid-template-columns:repeat(4,1fr);}}
+.as-card{background:var(--bg);border:1px solid var(--border);padding:12px;text-align:center;}
+.as-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--red);}
+.as-label{font-size:10px;color:var(--muted);margin-top:3px;}
+.num-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.num-row:last-child{border-bottom:none;}
+.nr-info{flex:1;}
+.nr-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.nr-cnt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+.nr-pct{font-size:11px;color:var(--muted);}
+.nr-bar-bg{height:4px;background:var(--border);border-radius:2px;}
+.nr-bar{height:4px;border-radius:2px;transition:width 0.6s ease;}
+.nr-dots{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;}
+.dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+.dot.miss{background:var(--border);}
+.nr-last{font-size:10px;color:var(--muted);margin-top:4px;}
+.tag{display:inline-block;padding:1px 6px;font-size:9px;font-weight:700;letter-spacing:0.5px;border-radius:2px;}
+.tag-hot{background:#fde8e8;color:var(--red);}
+.tag-cold{background:#e8f0fc;color:var(--blue);}
+.tag-mid{background:var(--bg);color:var(--muted);border:1px solid var(--border);}
+.bm-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:5px;}
+.bm-round{font-size:10px;color:var(--muted);width:42px;flex-shrink:0;line-height:1.5;}
+.bm-balls{display:flex;gap:3px;flex:1;flex-wrap:wrap;align-items:center;}
+.bm-result{text-align:right;flex-shrink:0;}
+.bm-cnt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;}
+
+/* 통계/과거 탭 */
+.period-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;}
+.ptab{padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--muted);transition:all 0.15s;}
+.ptab.active{background:var(--text);color:#fff;border-color:var(--text);}
+.freq-grid{display:flex;flex-direction:column;gap:1px;}
+.freq-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);}
+.freq-row:last-child{border-bottom:none;}
+.fr-rank{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2);width:18px;text-align:right;flex-shrink:0;}
+.fr-bar-wrap{flex:1;height:8px;background:var(--border);}
+.fr-bar{height:8px;transition:width 0.5s ease;}
+.fr-cnt{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);width:32px;text-align:right;flex-shrink:0;}
+.fr-last{font-size:10px;color:var(--muted2);width:52px;text-align:right;flex-shrink:0;}
+.stat-top{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.sti{flex:1;min-width:110px;background:var(--bg);border:1px solid var(--border);padding:11px;}
+.sti-val{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;}
+.sti-label{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* 자동생성 */
+.auto-ticket{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);margin-bottom:5px;}
+.at-label{font-size:10px;color:var(--muted2);width:16px;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
+.at-balls{display:flex;gap:3px;flex:1;flex-wrap:wrap;align-items:center;}
+.at-result{font-size:11px;font-weight:600;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
+
+/* 연금 과거/통계 */
+.hist-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);margin-bottom:2px;}
+.hi-round{font-size:10px;color:var(--muted);width:38px;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
+.hi-date{font-size:10px;color:var(--muted2);width:72px;flex-shrink:0;}
+.hi-jo{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--gold);color:#fff;padding:2px 6px;flex-shrink:0;}
+.hi-nums{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;letter-spacing:4px;flex:1;}
+.hi-bonus{font-size:9px;color:var(--muted);flex-shrink:0;text-align:right;}
+.pos-section{margin-bottom:18px;}
+.pos-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:7px;font-weight:700;}
+.digit-bars{display:flex;gap:4px;align-items:flex-end;height:60px;}
+.digit-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.digit-fill{width:100%;min-height:2px;transition:height 0.5s ease;}
+.digit-fill.top-bar{background:var(--gold);}
+.digit-fill.mid-bar{background:var(--muted2);}
+.digit-fill.low-bar{background:var(--border);}
+.digit-num{font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.digit-cnt{font-size:8px;color:var(--muted2);}
+.jo-stat-row{display:flex;gap:6px;margin-top:10px;}
+.jo-stat-item{flex:1;background:var(--bg);border:1px solid var(--border);padding:10px 6px;text-align:center;}
+.jo-n{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;}
+.jo-c{font-size:10px;color:var(--muted);margin-top:2px;}
+.jo-stat-item.top-jo{border-color:var(--gold);background:#fef9e7;}.jo-stat-item.top-jo .jo-n{color:var(--gold);}
+.sum-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.sum-card{background:var(--bg);border:1px solid var(--border);padding:10px;text-align:center;}
+.sum-val{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:700;color:var(--gold);}
+.sum-label{font-size:9px;color:var(--muted);margin-top:2px;}
+
+/* 수동 업데이트 모달 */
+#updateModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:8888;align-items:center;justify-content:center;}
+#updateModal.open{display:flex;}
+.modal-box{background:var(--bg2);border:1px solid var(--border);padding:24px;width:100%;max-width:500px;margin:20px;max-height:80vh;overflow-y:auto;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:6px;}
+.modal-sub{font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.7;}
+.form-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
+.form-label{font-size:11px;color:var(--muted);width:70px;flex-shrink:0;}
+.form-input{flex:1;padding:8px 10px;border:1px solid var(--border);background:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;min-width:80px;}
+.form-input:focus{border-color:var(--text);}
+.form-select{padding:8px 10px;border:1px solid var(--border);background:var(--bg);font-size:13px;outline:none;cursor:pointer;}
+.update-result{margin-top:12px;padding:10px;font-size:12px;border:1px solid var(--border);background:var(--bg);display:none;}
+.update-result.ok{border-color:var(--green);color:var(--green);}
+.update-result.err{border-color:var(--red);color:var(--red);}
+
+/* 잠금 버튼 */
+.lock-btn{padding:7px 12px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--muted);transition:all 0.15s;}
+.lock-btn:hover{border-color:var(--text);color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- ===== 잠금 화면 ===== -->
+<div id="lockScreen">
+  <div class="lock-box">
+    <div class="lock-icon">🔐</div>
+    <div class="lock-title">복권 시뮬레이터</div>
+    <div class="lock-sub">4자리 비밀번호를 입력하세요</div>
+    <div class="lock-dots">
+      <div class="lock-dot" id="dot0"></div>
+      <div class="lock-dot" id="dot1"></div>
+      <div class="lock-dot" id="dot2"></div>
+      <div class="lock-dot" id="dot3"></div>
+    </div>
+    <div class="keypad">
+      <div class="key" onclick="keyPress('1')">1</div>
+      <div class="key" onclick="keyPress('2')">2</div>
+      <div class="key" onclick="keyPress('3')">3</div>
+      <div class="key" onclick="keyPress('4')">4</div>
+      <div class="key" onclick="keyPress('5')">5</div>
+      <div class="key" onclick="keyPress('6')">6</div>
+      <div class="key" onclick="keyPress('7')">7</div>
+      <div class="key" onclick="keyPress('8')">8</div>
+      <div class="key" onclick="keyPress('9')">9</div>
+      <div class="key empty"></div>
+      <div class="key" onclick="keyPress('0')">0</div>
+      <div class="key del" onclick="keyDel()">⌫</div>
+    </div>
+    <div class="lock-msg" id="lockMsg"></div>
+  </div>
+</div>
+
+<!-- ===== 메인 앱 ===== -->
+<div id="mainApp" style="display:none;">
+<div class="wrap">
+
+  <div class="app-header">
+    <div class="ah-left">
+      <div class="ah-sub">LOTTERY SIMULATOR</div>
+      <h1>복권 시뮬레이터</h1>
+    </div>
+    <div class="ah-right">
+      <button class="lock-btn" onclick="openUpdate()">📥 업데이트</button>
+      <button class="lock-btn" onclick="doLock()">🔒 잠금</button>
+    </div>
+  </div>
+
+  <!-- 앱 선택 탭 -->
+  <div class="app-tabs">
+    <div class="app-tab active" onclick="switchApp('lotto')">🎱 로또 6/45</div>
+    <div class="app-tab" onclick="switchApp('annuity')">💛 연금복권 720+</div>
+  </div>
+
+  <!-- ==================== 로또 앱 ==================== -->
+  <div class="app-view active" id="view-lotto">
+    <div class="load-wrap">
+      <div class="load-bg"><div class="load-fill" id="loadBar"></div></div>
+      <div class="load-text" id="loadText">동행복권 API 연결 중...</div>
+    </div>
+    <div id="lottoApp" style="display:none;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px;text-align:right;" id="lottoHeader"></div>
+      <div class="tabs" id="lottoTabs">
+        <div class="tab active" onclick="switchTab('l','draw')">추첨 시뮬</div>
+        <div class="tab" onclick="switchTab('l','auto')">자동 생성</div>
+        <div class="tab" onclick="switchTab('l','compare')">과거 분석</div>
+        <div class="tab" onclick="switchTab('l','stat')">통계</div>
+      </div>
+
+      <!-- 로또 추첨 시뮬 -->
+      <div class="panel active" id="l-panel-draw">
+        <div class="card">
+          <div class="sec-label">추첨 시뮬레이션</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.9;">예열 <strong style="color:var(--text)">30초</strong> → 번호 추첨 <strong style="color:var(--text)">4초 × 7개</strong> (6번호+보너스)</div>
+          <div class="t-wrap">
+            <div class="t-top"><span class="tl" id="ldLabel">대기 중</span><span class="ts" id="ldSec"></span></div>
+            <div class="t-bg"><div class="t-bar red" id="ldBar"></div></div>
+            <div class="t-status" id="ldStatus"></div>
+          </div>
+          <div class="balls-row" id="lDrawBalls" style="margin-bottom:16px;gap:6px;">
+            <div class="ball lg empty">?</div><div class="ball lg empty">?</div><div class="ball lg empty">?</div>
+            <div class="ball lg empty">?</div><div class="ball lg empty">?</div><div class="ball lg empty">?</div>
+            <span class="plus">+</span><div class="ball lg empty" style="opacity:0.4;">?</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-red" id="lDrawBtn" onclick="lStartDraw()">▶ 추첨 시작</button>
+            <button class="btn btn-ghost" onclick="lResetDraw()">초기화</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 로또 자동 생성 -->
+      <div class="panel" id="l-panel-auto">
+        <div class="card">
+          <div class="sec-label">자동 번호 생성 — 추첨 시뮬 방식</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">45개 공 중 무작위 추출 · 최신 당첨번호 일치 공 강조</div>
+          <div class="btn-row" style="margin-bottom:14px;">
+            <button class="btn btn-fill" onclick="lGenAuto(1)">1게임</button>
+            <button class="btn btn-ghost" onclick="lGenAuto(5)">5게임</button>
+            <button class="btn btn-ghost" onclick="lGenAuto(10)">10게임</button>
+          </div>
+          <div id="lAutoOut"></div>
+        </div>
+      </div>
+
+      <!-- 로또 과거 분석 -->
+      <div class="panel" id="l-panel-compare">
+        <div class="card">
+          <div class="sec-label">번호 선택 (6개)</div>
+          <div class="sel-row" id="lSelRow"><span class="sel-hint">번호를 선택하세요 (0/6)</span></div>
+          <div class="picker" id="lPicker"></div>
+          <div class="btn-row">
+            <button class="btn btn-fill" onclick="lRunAnalysis()">상세 분석</button>
+            <button class="btn btn-ghost" onclick="lClearCmp()">초기화</button>
+          </div>
+        </div>
+        <div id="lAnalysisOut" style="display:none;">
+          <div class="card"><div class="sec-label">요약</div><div class="analysis-summary" id="lAnaSummary"></div></div>
+          <div class="card"><div class="sec-label">번호별 상세 분석</div><div id="lNumRows"></div></div>
+          <div class="card"><div class="sec-label">역대 최다 일치 TOP 5</div><div id="lBestMatches"></div></div>
+        </div>
+      </div>
+
+      <!-- 로또 통계 -->
+      <div class="panel" id="l-panel-stat">
+        <div class="card">
+          <div class="sec-label">분석 범위</div>
+          <div class="period-tabs" id="lPtabs">
+            <div class="ptab active" onclick="lSetPeriod(10,this)">10회</div>
+            <div class="ptab" onclick="lSetPeriod(20,this)">20회</div>
+            <div class="ptab" onclick="lSetPeriod(30,this)">30회</div>
+            <div class="ptab" onclick="lSetPeriod(40,this)">40회</div>
+            <div class="ptab" onclick="lSetPeriod(50,this)">50회</div>
+            <div class="ptab" onclick="lSetPeriod(60,this)">60회</div>
+          </div>
+          <div class="stat-top" id="lStatTop"></div>
+        </div>
+        <div class="card">
+          <div class="sec-label" id="lStatLabel">번호별 출현 빈도</div>
+          <div class="freq-grid" id="lFreqGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 연금복권 앱 ==================== -->
+  <div class="app-view" id="view-annuity">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;text-align:right;">최신 <strong id="aLatestInfo">306회</strong> · 매주 목요일 19:05 MBC</div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('a','draw')">추첨 시뮬</div>
+      <div class="tab" onclick="switchTab('a','auto')">자동 생성</div>
+      <div class="tab" onclick="switchTab('a','hist')">과거 당첨번호</div>
+      <div class="tab" onclick="switchTab('a','stat')">통계</div>
+    </div>
+
+    <!-- 연금 추첨 -->
+    <div class="panel active" id="a-panel-draw">
+      <div class="card">
+        <div class="sec-label">추첨 시뮬레이션</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.9;">예열 <strong style="color:var(--text)">20초</strong> → 조 추첨 <strong style="color:var(--text)">3초</strong> → 숫자 <strong style="color:var(--text)">3초×6자리</strong></div>
+        <div class="t-wrap">
+          <div class="t-top"><span class="tl" id="adLabel">대기 중</span><span class="ts" id="adSec"></span></div>
+          <div class="t-bg"><div class="t-bar gold" id="adBar"></div></div>
+          <div class="t-status" id="adStatus"></div>
+        </div>
+        <div class="draw-stage" id="aDrawStage">
+          <div class="draw-jo" id="aDrawJo">?조</div>
+          <span class="sep">|</span>
+          <div class="d-ball" id="ab0">?</div><div class="d-ball" id="ab1">?</div><div class="d-ball" id="ab2">?</div>
+          <div class="d-ball" id="ab3">?</div><div class="d-ball" id="ab4">?</div><div class="d-ball" id="ab5">?</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-gold" id="aDrawBtn" onclick="aStartDraw()">▶ 추첨 시작</button>
+          <button class="btn btn-ghost" onclick="aResetDraw()">초기화</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 연금 자동 생성 -->
+    <div class="panel" id="a-panel-auto">
+      <div class="card">
+        <div class="sec-label">자동 번호 생성 — 추첨 시뮬 방식</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">조(1~5) 랜덤 + 각 자리(0~9) 독립 랜덤 · <span style="color:var(--gold);font-weight:700;">금색</span> = 자리별 일치</div>
+        <div class="btn-row" style="margin-bottom:14px;">
+          <button class="btn btn-fill" onclick="aGenAuto(1)">1장</button>
+          <button class="btn btn-ghost" onclick="aGenAuto(5)">5장</button>
+          <button class="btn btn-ghost" onclick="aGenAuto(10)">10장</button>
+        </div>
+        <div id="aAutoOut"></div>
+      </div>
+    </div>
+
+    <!-- 연금 과거 당첨번호 -->
+    <div class="panel" id="a-panel-hist">
+      <div class="card">
+        <div class="sec-label">회차 범위</div>
+        <div class="period-tabs" id="aHistTabs">
+          <div class="ptab active" onclick="aSetHist(10,this)">10회</div>
+          <div class="ptab" onclick="aSetHist(20,this)">20회</div>
+          <div class="ptab" onclick="aSetHist(30,this)">30회</div>
+          <div class="ptab" onclick="aSetHist(40,this)">40회</div>
+          <div class="ptab" onclick="aSetHist(50,this)">50회</div>
+          <div class="ptab" onclick="aSetHist(60,this)">60회</div>
+        </div>
+        <div class="sum-row" id="aHistSum"></div>
+        <div id="aHistList"></div>
+      </div>
+    </div>
+
+    <!-- 연금 통계 -->
+    <div class="panel" id="a-panel-stat">
+      <div class="card">
+        <div class="sec-label">분석 범위</div>
+        <div class="period-tabs" id="aStatTabs">
+          <div class="ptab active" onclick="aSetStat(10,this)">10회</div>
+          <div class="ptab" onclick="aSetStat(20,this)">20회</div>
+          <div class="ptab" onclick="aSetStat(30,this)">30회</div>
+          <div class="ptab" onclick="aSetStat(40,this)">40회</div>
+          <div class="ptab" onclick="aSetStat(50,this)">50회</div>
+          <div class="ptab" onclick="aSetStat(60,this)">60회</div>
+        </div>
+        <div class="sum-row" id="aStatSum"></div>
+      </div>
+      <div class="card">
+        <div class="sec-label" id="aStatPosLabel">자리별 숫자 출현 빈도</div>
+        <div id="aStatPos"></div>
+      </div>
+      <div class="card">
+        <div class="sec-label">조(組) 출현 횟수</div>
+        <div class="jo-stat-row" id="aJoStat"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- wrap -->
+</div><!-- mainApp -->
+
+<!-- ===== 수동 업데이트 모달 ===== -->
+<div id="updateModal">
+  <div class="modal-box">
+    <div class="modal-title">📥 수동 업데이트</div>
+    <div class="modal-sub">
+      매주 추첨 후 새 회차 번호를 직접 입력하세요.<br>
+      로또는 토요일 밤, 연금복권은 목요일 저녁 추첨.
+    </div>
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">▸ 로또 6/45 추가</div>
+    <div class="form-row"><span class="form-label">회차</span><input class="form-input" id="uLottoRound" type="number" placeholder="1216"></div>
+    <div class="form-row"><span class="form-label">날짜</span><input class="form-input" id="uLottoDate" type="text" placeholder="2026-03-21"></div>
+    <div class="form-row"><span class="form-label">당첨번호</span><input class="form-input" id="uLottoNums" type="text" placeholder="1,7,15,22,33,44"></div>
+    <div class="form-row"><span class="form-label">보너스</span><input class="form-input" id="uLottoBonus" type="number" placeholder="39"></div>
+    <div class="btn-row" style="margin-bottom:18px;">
+      <button class="btn btn-fill btn-sm" onclick="addLottoData()">로또 추가</button>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin-bottom:18px;"></div>
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">▸ 연금복권 720+ 추가</div>
+    <div class="form-row"><span class="form-label">회차</span><input class="form-input" id="uAnRound" type="number" placeholder="307"></div>
+    <div class="form-row"><span class="form-label">날짜</span><input class="form-input" id="uAnDate" type="text" placeholder="2026-03-19"></div>
+    <div class="form-row">
+      <span class="form-label">조</span>
+      <select class="form-select" id="uAnJo"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+    </div>
+    <div class="form-row"><span class="form-label">1등 번호</span><input class="form-input" id="uAnWin" type="text" placeholder="123456 (6자리)"></div>
+    <div class="form-row"><span class="form-label">보너스</span><input class="form-input" id="uAnBonus" type="text" placeholder="654321 (6자리)"></div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn btn-gold btn-sm" onclick="addAnnuityData()">연금복권 추가</button>
+    </div>
+
+    <div class="update-result" id="updateResult"></div>
+    <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost btn-sm" onclick="closeUpdate()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================================
+// 비밀번호 — 여기서 변경하세요
+// ========================================
+const PASSWORD = 'Rkdfla@8180';
+// ========================================
+
+// ===== 잠금 =====
+let pinInput = '';
+
+function keyPress(k){
+  if(pinInput.length >= 4) return;
+  pinInput += k;
+  updateDots();
+  if(pinInput.length === 4) setTimeout(checkPin, 120);
+}
+function keyDel(){
+  pinInput = pinInput.slice(0,-1);
+  updateDots();
+  document.getElementById('lockMsg').textContent = '';
+}
+function updateDots(){
+  for(let i=0;i<4;i++){
+    const d = document.getElementById('dot'+i);
+    d.classList.toggle('filled', i < pinInput.length);
+    d.classList.remove('error');
+  }
+}
+function checkPin(){
+  if(pinInput === PASSWORD){
+    document.getElementById('lockScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    loadLottoData();
+  } else {
+    for(let i=0;i<4;i++) document.getElementById('dot'+i).classList.add('error');
+    document.getElementById('lockMsg').textContent = '비밀번호가 틀렸습니다';
+    setTimeout(()=>{ pinInput=''; updateDots(); document.getElementById('lockMsg').textContent=''; },800);
+  }
+}
+function doLock(){
+  pinInput='';
+  updateDots();
+  document.getElementById('lockMsg').textContent='';
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('lockScreen').style.display='flex';
+}
+
+// ===== 앱 전환 =====
+function switchApp(name){
+  ['lotto','annuity'].forEach((n,i)=>{
+    document.querySelectorAll('.app-tab')[i].classList.toggle('active',n===name);
+    document.getElementById('view-'+n).classList.toggle('active',n===name);
+  });
+}
+function switchTab(prefix, name){
+  const panels = prefix==='l' ? ['draw','auto','compare','stat'] : ['draw','auto','hist','stat'];
+  const tabEl = document.querySelectorAll(prefix==='l' ? '#lottoTabs .tab' : '.app-view.active .tabs .tab');
+  panels.forEach((n,i)=>{
+    if(tabEl[i]) tabEl[i].classList.toggle('active', n===name);
+    const p = document.getElementById(prefix+'-panel-'+n);
+    if(p) p.classList.toggle('active', n===name);
+  });
+}
+
+// ========================================
+// 로또 데이터
+// ========================================
+let LALL = [];
+let LLATEST = null;
+let lCmpPicks = [];
+
+function bc(n){ return n<=10?'b1':n<=20?'b2':n<=30?'b3':n<=40?'b4':'b5'; }
+function bchex(n){ return n<=10?'#e6a817':n<=20?'#3a82d6':n<=30?'#d63030':n<=40?'#64686e':'#2a8f52'; }
+
+async function loadLottoData(){
+  try {
+    const first = await lApi(1215);
+    const maxR = first ? first.round : 1215;
+    const loadUntil = Math.max(1, maxR-119);
+    let loaded=0; const total=maxR-loadUntil+1; const results=[];
+    for(let r=maxR; r>=loadUntil; r-=15){
+      const batch=[];
+      for(let i=r; i>Math.max(r-15,loadUntil-1); i--) batch.push(lApi(i));
+      const res=await Promise.all(batch);
+      res.forEach(d=>{ if(d) results.push(d); });
+      loaded+=batch.length;
+      const pct=Math.round(loaded/total*100);
+      document.getElementById('loadBar').style.width=pct+'%';
+      document.getElementById('loadText').textContent=`로또 데이터 ${loaded}/${total}회차 (${pct}%)`;
+    }
+    results.sort((a,b)=>b.round-a.round);
+    LALL=results; LLATEST=LALL[0];
+    onLottoLoaded();
+  } catch(e){ lFallback(); }
+}
+
+async function lApi(round){
+  try {
+    const r=await fetch(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`);
+    const d=await r.json();
+    if(d.returnValue!=='success') return null;
+    return {round:d.drwNo,nums:[d.drwtNo1,d.drwtNo2,d.drwtNo3,d.drwtNo4,d.drwtNo5,d.drwtNo6].sort((a,b)=>a-b),bonus:d.bnusNo,date:d.drwNoDate};
+  } catch(e){ return null; }
+}
+
+function lFallback(){
+  LALL=[
+    {round:1215,nums:[13,15,19,21,44,45],bonus:39,date:'2026-03-14'},
+    {round:1214,nums:[10,15,19,27,30,33],bonus:14,date:'2026-03-07'},
+    {round:1213,nums:[5,11,25,27,36,38],bonus:2,date:'2026-02-28'},
+    {round:1212,nums:[5,8,25,31,41,44],bonus:45,date:'2026-02-21'},
+    {round:1211,nums:[23,26,27,35,38,40],bonus:10,date:'2026-02-14'},
+    {round:1210,nums:[1,7,9,17,27,38],bonus:31,date:'2026-02-07'},
+    {round:1209,nums:[2,17,20,35,37,39],bonus:24,date:'2026-01-31'},
+    {round:1208,nums:[6,27,30,36,38,42],bonus:25,date:'2026-01-24'},
+    {round:1207,nums:[10,22,24,27,38,45],bonus:11,date:'2026-01-17'},
+    {round:1206,nums:[1,3,17,26,27,42],bonus:23,date:'2026-01-10'},
+    {round:1205,nums:[1,4,16,23,31,41],bonus:2,date:'2026-01-03'},
+    {round:1204,nums:[8,16,28,30,31,44],bonus:27,date:'2025-12-27'},
+    {round:1203,nums:[3,6,18,29,35,39],bonus:24,date:'2025-12-20'},
+    {round:1202,nums:[5,12,21,33,37,40],bonus:7,date:'2025-12-13'},
+    {round:1201,nums:[7,9,24,27,35,36],bonus:37,date:'2025-12-06'},
+    {round:1200,nums:[4,11,23,29,32,44],bonus:16,date:'2025-11-29'},
+    {round:1199,nums:[6,14,21,28,34,40],bonus:3,date:'2025-11-22'},
+    {round:1198,nums:[2,9,19,31,37,42],bonus:22,date:'2025-11-15'},
+    {round:1197,nums:[10,18,25,30,38,43],bonus:5,date:'2025-11-08'},
+    {round:1196,nums:[1,12,20,27,33,41],bonus:17,date:'2025-11-01'},
+  ];
+  LLATEST=LALL[0];
+  document.getElementById('loadText').textContent='⚠ 오프라인 모드 (내장 데이터)';
+  document.getElementById('loadBar').style.width='100%';
+  setTimeout(onLottoLoaded,400);
+}
+
+function onLottoLoaded(){
+  LLATEST=LALL[0];
+  document.getElementById('loadText').style.display='none';
+  document.getElementById('loadBar').style.display='none';
+  document.getElementById('lottoApp').style.display='block';
+  document.getElementById('lottoHeader').innerHTML=`최신 <strong>${LLATEST.round}회</strong> · ${LLATEST.date} · 매주 토요일 20:35 MBC`;
+  lRenderPicker(); lSetPeriod(10,document.querySelector('#lPtabs .ptab'));
+}
+
+// 로또 추첨 시뮬
+let lDrawRunning=false, lDrawT=null;
+function lResetDraw(){
+  if(lDrawT) clearTimeout(lDrawT);
+  lDrawRunning=false;
+  document.getElementById('lDrawBtn').disabled=false;
+  document.getElementById('lDrawBtn').textContent='▶ 추첨 시작';
+  document.getElementById('ldBar').style.width='0%';
+  document.getElementById('ldLabel').textContent='대기 중';
+  document.getElementById('ldSec').textContent='';
+  document.getElementById('ldStatus').textContent='';
+  document.getElementById('ldStatus').className='t-status';
+  const el=document.getElementById('lDrawBalls'); el.innerHTML='';
+  for(let i=0;i<6;i++){const b=document.createElement('div');b.className='ball lg empty';b.textContent='?';el.appendChild(b);}
+  const pl=document.createElement('span');pl.className='plus';pl.textContent='+';el.appendChild(pl);
+  const bn=document.createElement('div');bn.className='ball lg empty';bn.style.opacity='0.4';bn.textContent='?';el.appendChild(bn);
+}
+function randLotto(){
+  const pool=Array.from({length:45},(_,i)=>i+1); const p=[];
+  while(p.length<6){const i=Math.floor(Math.random()*pool.length);p.push(pool.splice(i,1)[0]);}
+  return p.sort((a,b)=>a-b);
+}
+function lStartDraw(){
+  if(lDrawRunning) return; lDrawRunning=true;
+  document.getElementById('lDrawBtn').disabled=true;
+  const nums=randLotto();
+  const pool=Array.from({length:45},(_,i)=>i+1).filter(n=>!nums.includes(n));
+  const bonus=pool[Math.floor(Math.random()*pool.length)];
+  lWarmup(nums,bonus);
+}
+function lWarmup(nums,bonus){
+  document.getElementById('ldLabel').textContent='기계 예열 중';
+  document.getElementById('ldStatus').textContent='추첨 기계가 돌아가고 있습니다...';
+  document.getElementById('ldStatus').className='t-status on';
+  let e=0; const T=30000;
+  const tick=()=>{
+    e+=100; document.getElementById('ldBar').style.width=Math.min(e/T*100,100)+'%';
+    document.getElementById('ldSec').textContent=Math.ceil((T-e)/1000)+'s';
+    if(e<T) lDrawT=setTimeout(tick,100);
+    else { document.getElementById('ldStatus').textContent='예열 완료! 추첨 시작'; lDrawT=setTimeout(()=>lDrawBall(nums,bonus,0),500); }
+  };
+  lDrawT=setTimeout(tick,100);
+}
+function lDrawBall(nums,bonus,idx){
+  const isB=idx===6, val=isB?bonus:nums[idx];
+  const balls=document.getElementById('lDrawBalls').querySelectorAll('.ball');
+  const target=balls[isB?6:idx];
+  const labels=['1번째','2번째','3번째','4번째','5번째','6번째','보너스'];
+  document.getElementById('ldLabel').textContent=labels[idx]+' 번호';
+  document.getElementById('ldStatus').textContent=labels[idx]+' 공 추첨 중...';
+  target.classList.remove('empty'); target.classList.add('spinning'); target.style.opacity='1';
+  let e=0; const T=4000;
+  const tick=()=>{
+    e+=100; document.getElementById('ldBar').style.width=Math.min(e/T*100,100)+'%';
+    document.getElementById('ldSec').textContent=Math.ceil((T-e)/1000)+'s';
+    const r=Math.floor(Math.random()*45)+1; target.textContent=r<10?'0'+r:r;
+    if(e<T) lDrawT=setTimeout(tick,100);
+    else {
+      target.classList.remove('spinning'); target.classList.add(bc(val),'landed');
+      target.textContent=val<10?'0'+val:val;
+      if(idx<6) lDrawT=setTimeout(()=>lDrawBall(nums,bonus,idx+1),400);
+      else {
+        document.getElementById('ldLabel').textContent='추첨 완료';
+        document.getElementById('ldSec').textContent='';
+        document.getElementById('ldStatus').textContent=`당첨번호: ${nums.map(n=>n<10?'0'+n:n).join('  ')}  +  보너스 ${bonus<10?'0'+bonus:bonus}`;
+        document.getElementById('lDrawBtn').disabled=false; document.getElementById('lDrawBtn').textContent='▶ 다시 추첨'; lDrawRunning=false;
+      }
+    }
+  };
+  lDrawT=setTimeout(tick,100);
+}
+
+// 로또 자동 생성
+function lGetRank(my,win,bon){
+  const m=my.filter(n=>win.includes(n)).length, hb=my.includes(bon);
+  if(m===6) return {r:'1등',c:'var(--red)'};
+  if(m===5&&hb) return {r:'2등',c:'var(--blue)'};
+  if(m===5) return {r:'3등',c:'var(--gold)'};
+  if(m===4) return {r:'4등',c:'var(--gray)'};
+  if(m===3) return {r:'5등',c:'var(--gray)'};
+  return {r:'낙첨',c:'var(--muted2)'};
+}
+function lGenAuto(count){
+  const wrap=document.getElementById('lAutoOut'); wrap.innerHTML='';
+  for(let i=0;i<count;i++){
+    const nums=randLotto(), rk=lGetRank(nums,LLATEST.nums,LLATEST.bonus);
+    const div=document.createElement('div'); div.className='auto-ticket';
+    let bh=''; nums.forEach(n=>{ bh+=`<div class="ball sm ${bc(n)}${LLATEST.nums.includes(n)?'':' dim'}">${n<10?'0'+n:n}</div>`; });
+    div.innerHTML=`<div class="at-label">${String.fromCharCode(65+i)}</div><div class="at-balls">${bh}</div><div class="at-result" style="color:${rk.c}">${rk.r}</div>`;
+    wrap.appendChild(div);
+  }
+  const info=document.createElement('div');
+  info.style.cssText='margin-top:10px;padding:9px;background:var(--bg);border:1px solid var(--border);font-size:11px;color:var(--muted);';
+  let lh=`기준 ${LLATEST.round}회: `;
+  LLATEST.nums.forEach(n=>{ lh+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${bchex(n)};color:#fff;font-size:9px;font-weight:600;margin:1px;">${n}</span>`; });
+  lh+=`<span style="margin:0 3px;color:var(--muted2);">+</span><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${bchex(LLATEST.bonus)};color:#fff;font-size:9px;opacity:0.6;">${LLATEST.bonus}</span> · 어두운 공=미일치`;
+  info.innerHTML=lh; wrap.appendChild(info);
+}
+
+// 로또 번호피커
+function lRenderPicker(){
+  const el=document.getElementById('lPicker'); el.innerHTML='';
+  for(let n=1;n<=45;n++){
+    const b=document.createElement('div'); b.className='pb'+(lCmpPicks.includes(n)?' sel':'');
+    if(lCmpPicks.includes(n)) b.style.background=bchex(n);
+    b.textContent=n<10?'0'+n:n;
+    b.onclick=()=>{
+      if(lCmpPicks.includes(n)) lCmpPicks.splice(lCmpPicks.indexOf(n),1);
+      else if(lCmpPicks.length<6){lCmpPicks.push(n);lCmpPicks.sort((a,b)=>a-b);}
+      lRenderPicker(); lUpdateSel();
+    };
+    el.appendChild(b);
+  }
+}
+function lUpdateSel(){
+  const row=document.getElementById('lSelRow'); row.innerHTML='';
+  if(!lCmpPicks.length){row.innerHTML='<span class="sel-hint">번호를 선택하세요 (0/6)</span>';return;}
+  lCmpPicks.forEach(n=>{const b=document.createElement('div');b.className=`ball md ${bc(n)}`;b.textContent=n<10?'0'+n:n;row.appendChild(b);});
+  if(lCmpPicks.length<6){const s=document.createElement('span');s.className='sel-hint';s.textContent=lCmpPicks.length+'/6';row.appendChild(s);}
+}
+function lClearCmp(){lCmpPicks=[];lRenderPicker();lUpdateSel();document.getElementById('lAnalysisOut').style.display='none';}
+
+// 로또 분석
+function lRunAnalysis(){
+  if(lCmpPicks.length<6){alert('6개를 모두 선택해주세요');return;}
+  const my=lCmpPicks, N=LALL.length;
+  const totalCnt=Array(46).fill(0);
+  LALL.forEach(h=>h.nums.forEach(n=>totalCnt[n]++));
+  const avgCnt=N*6/45;
+  const myCnt={}, lastSeen={};
+  my.forEach(n=>{myCnt[n]=0;lastSeen[n]=null;});
+  let totalMatch=0, bestMatch=0;
+  LALL.forEach((h,i)=>{
+    my.forEach(n=>{if(h.nums.includes(n)){myCnt[n]++;if(!lastSeen[n])lastSeen[n]={round:h.round,date:h.date,ago:i};}});
+    const m=my.filter(n=>h.nums.includes(n)).length;
+    totalMatch+=m; if(m>bestMatch) bestMatch=m;
+  });
+  document.getElementById('lAnaSummary').innerHTML=`
+    <div class="as-card"><div class="as-val">${(totalMatch/N).toFixed(2)}</div><div class="as-label">평균 일치 수</div></div>
+    <div class="as-card"><div class="as-val">${bestMatch}개</div><div class="as-label">최다 일치</div></div>
+    <div class="as-card"><div class="as-val">${N}</div><div class="as-label">분석 회차</div></div>
+    <div class="as-card"><div class="as-val">${totalMatch}</div><div class="as-label">총 일치 횟수</div></div>`;
+  const recent30=LALL.slice(0,30);
+  let rowsHtml='';
+  my.forEach(n=>{
+    const cnt=myCnt[n], ls=lastSeen[n];
+    const isHot=totalCnt[n]>avgCnt*1.12, isCold=totalCnt[n]<avgCnt*0.88;
+    const barPct=Math.round(cnt/Math.max(...my.map(x=>myCnt[x]),1)*100);
+    let dotsHtml='';
+    recent30.forEach(h=>{dotsHtml+=`<div class="dot ${h.nums.includes(n)?'hit':'miss'}" title="${h.round}회" style="${h.nums.includes(n)?`background:${bchex(n)};`:''}"></div>`;});
+    rowsHtml+=`<div class="num-row"><div class="nr-ball"><div class="ball md ${bc(n)}">${n<10?'0'+n:n}</div></div>
+      <div class="nr-info">
+        <div class="nr-top"><span class="nr-cnt">${cnt}회</span><span class="nr-pct">${N}회 중 ${(cnt/N*100).toFixed(1)}%</span><span class="tag ${isHot?'tag-hot':isCold?'tag-cold':'tag-mid'}">${isHot?'HOT':isCold?'COLD':'보통'}</span></div>
+        <div class="nr-bar-bg"><div class="nr-bar" style="width:${barPct}%;background:${bchex(n)};"></div></div>
+        <div class="nr-dots">${dotsHtml}</div>
+        <div class="nr-last">최근 30회 히트 · 최근: ${ls?`${ls.round}회 (${ls.date}, ${ls.ago+1}회전 전)`:'없음'}</div>
+      </div></div>`;
+  });
+  document.getElementById('lNumRows').innerHTML=rowsHtml;
+  const sorted=LALL.map(h=>{const matched=my.filter(n=>h.nums.includes(n));return {...h,matched,cnt:matched.length,hb:my.includes(h.bonus)};}).sort((a,b)=>b.cnt-a.cnt||b.round-a.round).slice(0,5);
+  let bmHtml='';
+  sorted.forEach(m=>{
+    const rk=lGetRank(my,m.nums,m.bonus);
+    let bh=''; m.nums.forEach(n=>{bh+=`<div class="ball sm ${bc(n)}${my.includes(n)?'':' dim'}">${n<10?'0'+n:n}</div>`;});
+    bh+=`<span class="plus">+</span><div class="ball sm ${bc(m.bonus)}${m.hb?'':' dim'}">${m.bonus<10?'0'+m.bonus:m.bonus}</div>`;
+    bmHtml+=`<div class="bm-item"><div class="bm-round">${m.round}회<br><span style="color:var(--muted2)">${m.date}</span></div><div class="bm-balls">${bh}</div><div class="bm-result"><div class="bm-cnt" style="color:${m.cnt>=5?'var(--red)':m.cnt>=3?'var(--gray)':'var(--muted2)'}">${m.cnt}개</div><div style="font-size:9px;color:var(--muted)">${rk.r}</div></div></div>`;
+  });
+  document.getElementById('lBestMatches').innerHTML=bmHtml;
+  document.getElementById('lAnalysisOut').style.display='block';
+}
+
+// 로또 통계
+function lSetPeriod(n,el){
+  document.querySelectorAll('#lPtabs .ptab').forEach(t=>t.classList.remove('active')); el.classList.add('active');
+  const data=LALL.slice(0,n); if(!data.length) return;
+  const cnt=Array(46).fill(0); data.forEach(h=>h.nums.forEach(x=>cnt[x]++));
+  const maxCnt=Math.max(...cnt.slice(1));
+  const sorted=[...cnt.slice(1).entries()].map(([i,c])=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
+  document.getElementById('lStatTop').innerHTML=`
+    <div class="sti"><div class="sti-val" style="display:flex;align-items:center;gap:5px;"><div class="ball sm ${bc(sorted[0].n)}">${sorted[0].n<10?'0'+sorted[0].n:sorted[0].n}</div><span style="color:var(--red)">${sorted[0].c}회</span></div><div class="sti-label">가장 많이</div></div>
+    <div class="sti"><div class="sti-val" style="display:flex;align-items:center;gap:5px;"><div class="ball sm ${bc(sorted[44].n)}" style="opacity:0.4">${sorted[44].n<10?'0'+sorted[44].n:sorted[44].n}</div><span style="color:var(--muted)">${sorted[44].c}회</span></div><div class="sti-label">가장 적게</div></div>
+    <div class="sti"><div class="sti-val">${n}회차</div><div class="sti-label">${data[data.length-1]?.round}~${data[0]?.round}회</div></div>`;
+  document.getElementById('lStatLabel').textContent=`번호별 출현 빈도 — 최근 ${n}회`;
+  const grid=document.getElementById('lFreqGrid'); grid.innerHTML='';
+  sorted.forEach(({n:num,c},rank)=>{
+    const isHot=rank<5, isCold=rank>=40, barW=Math.round(c/maxCnt*100);
+    const lastH=data.find(h=>h.nums.includes(num)), lastStr=lastH?`${lastH.round}회`:'없음';
+    const row=document.createElement('div'); row.className='freq-row';
+    row.innerHTML=`<div class="fr-rank">${rank+1}</div><div class="ball xs ${bc(num)}" style="${isCold?'opacity:0.4;':''}">${num<10?'0'+num:num}</div><div class="fr-bar-wrap"><div class="fr-bar" style="width:${barW}%;background:${bchex(num)};${isCold?'opacity:0.4;':''}"></div></div><div class="fr-cnt">${c}회</div><div class="fr-last">${lastStr}</div><div style="width:34px;text-align:right"><span class="tag ${isHot?'tag-hot':isCold?'tag-cold':'tag-mid'}">${isHot?'HOT':isCold?'COLD':'─'}</span></div>`;
+    grid.appendChild(row);
+  });
+}
+
+// ========================================
+// 연금복권 데이터
+// ========================================
+let AALL = [
+  {round:306,jo:4,win:'545380',bonus:'394402',date:'2026-03-12'},
+  {round:305,jo:2,win:'331316',bonus:'509988',date:'2026-03-05'},
+  {round:304,jo:5,win:'234931',bonus:'438985',date:'2026-02-26'},
+  {round:303,jo:4,win:'639566',bonus:'619136',date:'2026-02-19'},
+  {round:302,jo:4,win:'639927',bonus:'055495',date:'2026-02-12'},
+  {round:301,jo:4,win:'748559',bonus:'812029',date:'2026-02-05'},
+  {round:300,jo:1,win:'455490',bonus:'428554',date:'2026-01-29'},
+  {round:299,jo:2,win:'282945',bonus:'902252',date:'2026-01-22'},
+  {round:298,jo:3,win:'960211',bonus:'492845',date:'2026-01-15'},
+  {round:297,jo:5,win:'444163',bonus:'248825',date:'2026-01-08'},
+  {round:296,jo:1,win:'667975',bonus:'988431',date:'2026-01-01'},
+  {round:295,jo:3,win:'751272',bonus:'290334',date:'2025-12-25'},
+  {round:294,jo:1,win:'746186',bonus:'171023',date:'2025-12-18'},
+  {round:293,jo:3,win:'650321',bonus:'510238',date:'2025-12-11'},
+  {round:292,jo:4,win:'971630',bonus:'140693',date:'2025-12-04'},
+  {round:291,jo:4,win:'149309',bonus:'036179',date:'2025-11-27'},
+  {round:290,jo:5,win:'200115',bonus:'694748',date:'2025-11-20'},
+  {round:289,jo:3,win:'585935',bonus:'853647',date:'2025-11-13'},
+  {round:288,jo:5,win:'112703',bonus:'598143',date:'2025-11-06'},
+  {round:287,jo:5,win:'614749',bonus:'435160',date:'2025-10-30'},
+  {round:286,jo:2,win:'824756',bonus:'783962',date:'2025-10-23'},
+  {round:285,jo:1,win:'392841',bonus:'174523',date:'2025-10-16'},
+  {round:284,jo:3,win:'507362',bonus:'291847',date:'2025-10-09'},
+  {round:283,jo:2,win:'163908',bonus:'582340',date:'2025-10-02'},
+  {round:282,jo:5,win:'847213',bonus:'630495',date:'2025-09-25'},
+  {round:281,jo:1,win:'294758',bonus:'163042',date:'2025-09-18'},
+  {round:280,jo:4,win:'531907',bonus:'248635',date:'2025-09-11'},
+  {round:279,jo:2,win:'716384',bonus:'905127',date:'2025-09-04'},
+  {round:278,jo:3,win:'452096',bonus:'371582',date:'2025-08-28'},
+  {round:277,jo:5,win:'983620',bonus:'147503',date:'2025-08-21'},
+  {round:276,jo:1,win:'347851',bonus:'206934',date:'2025-08-14'},
+  {round:275,jo:4,win:'692037',bonus:'815240',date:'2025-08-07'},
+  {round:274,jo:2,win:'158473',bonus:'360791',date:'2025-07-31'},
+  {round:273,jo:3,win:'804516',bonus:'592038',date:'2025-07-24'},
+  {round:272,jo:5,win:'371249',bonus:'648305',date:'2025-07-17'},
+  {round:271,jo:1,win:'926783',bonus:'041596',date:'2025-07-10'},
+  {round:270,jo:4,win:'540168',bonus:'279354',date:'2025-07-03'},
+  {round:269,jo:2,win:'813597',bonus:'462018',date:'2025-06-26'},
+  {round:268,jo:3,win:'267043',bonus:'530187',date:'2025-06-19'},
+  {round:267,jo:5,win:'495820',bonus:'173406',date:'2025-06-12'},
+  {round:266,jo:1,win:'738264',bonus:'051739',date:'2025-06-05'},
+  {round:265,jo:4,win:'182635',bonus:'907421',date:'2025-05-29'},
+  {round:264,jo:2,win:'654901',bonus:'283567',date:'2025-05-22'},
+  {round:263,jo:3,win:'917348',bonus:'640215',date:'2025-05-15'},
+  {round:262,jo:5,win:'403876',bonus:'159342',date:'2025-05-08'},
+  {round:261,jo:1,win:'862519',bonus:'734086',date:'2025-05-01'},
+  {round:260,jo:4,win:'235784',bonus:'019653',date:'2025-04-24'},
+  {round:259,jo:2,win:'590137',bonus:'874260',date:'2025-04-17'},
+  {round:258,jo:3,win:'746902',bonus:'213548',date:'2025-04-10'},
+  {round:257,jo:5,win:'318465',bonus:'590273',date:'2025-04-03'},
+  {round:256,jo:1,win:'674230',bonus:'148905',date:'2025-03-27'},
+  {round:255,jo:4,win:'901587',bonus:'362741',date:'2025-03-20'},
+  {round:254,jo:2,win:'453019',bonus:'726384',date:'2025-03-13'},
+  {round:253,jo:3,win:'827364',bonus:'051492',date:'2025-03-06'},
+  {round:252,jo:5,win:'196043',bonus:'438720',date:'2025-02-27'},
+  {round:251,jo:1,win:'582670',bonus:'914035',date:'2025-02-20'},
+  {round:250,jo:4,win:'734908',bonus:'261574',date:'2025-02-13'},
+  {round:249,jo:2,win:'361452',bonus:'807239',date:'2025-02-06'},
+  {round:248,jo:3,win:'905827',bonus:'473106',date:'2025-01-30'},
+  {round:247,jo:5,win:'218934',bonus:'650781',date:'2025-01-23'},
+];
+
+// 연금 추첨
+let aDrawRunning=false, aDrawT=null;
+function aResetDraw(){
+  if(aDrawT) clearTimeout(aDrawT);
+  aDrawRunning=false;
+  document.getElementById('aDrawBtn').disabled=false; document.getElementById('aDrawBtn').textContent='▶ 추첨 시작';
+  document.getElementById('adBar').style.width='0%'; document.getElementById('adLabel').textContent='대기 중';
+  document.getElementById('adSec').textContent=''; document.getElementById('adStatus').textContent=''; document.getElementById('adStatus').className='t-status';
+  const jo=document.getElementById('aDrawJo'); jo.textContent='?조'; jo.className='draw-jo';
+  for(let i=0;i<6;i++){const b=document.getElementById('ab'+i);b.textContent='?';b.className='d-ball';}
+}
+function aStartDraw(){
+  if(aDrawRunning) return; aDrawRunning=true; document.getElementById('aDrawBtn').disabled=true;
+  const jo=Math.floor(Math.random()*5)+1, nums=Array.from({length:6},()=>Math.floor(Math.random()*10));
+  aWarmup(jo,nums);
+}
+function aWarmup(jo,nums){
+  document.getElementById('adLabel').textContent='기계 예열 중'; document.getElementById('adStatus').textContent='추첨 기계가 돌아가고 있습니다...'; document.getElementById('adStatus').className='t-status on';
+  let e=0; const T=20000;
+  const tick=()=>{
+    e+=100; document.getElementById('adBar').style.width=Math.min(e/T*100,100)+'%';
+    document.getElementById('adSec').textContent=Math.ceil((T-e)/1000)+'s';
+    if(e<T) aDrawT=setTimeout(tick,100);
+    else { document.getElementById('adStatus').textContent='예열 완료! 추첨 시작'; aDrawT=setTimeout(()=>aPhase(jo,nums,0),500); }
+  };
+  aDrawT=setTimeout(tick,100);
+}
+function aPhase(jo,nums,idx){
+  const isJo=idx===0, ballIdx=idx-1;
+  const labels=['조 추첨','1번째','2번째','3번째','4번째','5번째','6번째'];
+  document.getElementById('adLabel').textContent=labels[idx]; document.getElementById('adStatus').textContent=(isJo?'조 추첨 중...':idx+'번째 숫자 추첨 중...'); document.getElementById('adStatus').className='t-status on';
+  const joEl=document.getElementById('aDrawJo');
+  if(isJo) joEl.className='draw-jo spin';
+  else { const b=document.getElementById('ab'+ballIdx); b.className='d-ball spinning'; }
+  let e=0; const T=3000;
+  const tick=()=>{
+    e+=100; document.getElementById('adBar').style.width=Math.min(e/T*100,100)+'%';
+    document.getElementById('adSec').textContent=Math.ceil((T-e)/1000)+'s';
+    if(isJo) joEl.textContent=(Math.floor(Math.random()*5)+1)+'조';
+    else document.getElementById('ab'+ballIdx).textContent=Math.floor(Math.random()*10);
+    if(e<T) aDrawT=setTimeout(tick,100);
+    else {
+      if(isJo){joEl.textContent=jo+'조';joEl.className='draw-jo';}
+      else{const b=document.getElementById('ab'+ballIdx);b.textContent=nums[ballIdx];b.className='d-ball done-ball';}
+      if(idx<6) aDrawT=setTimeout(()=>aPhase(jo,nums,idx+1),400);
+      else {
+        document.getElementById('adLabel').textContent='추첨 완료'; document.getElementById('adSec').textContent='';
+        document.getElementById('adStatus').textContent=`${jo}조  ${nums.join('')} — 완료`;
+        document.getElementById('aDrawBtn').disabled=false; document.getElementById('aDrawBtn').textContent='▶ 다시 추첨'; aDrawRunning=false;
+      }
+    }
+  };
+  aDrawT=setTimeout(tick,100);
+}
+
+// 연금 자동생성
+function aGetRank(myJo,myNum,winJo,winNum,bonusNum){
+  if(+myJo===winJo&&myNum===winNum) return {r:'1등',c:'var(--gold)'};
+  if(myNum===winNum) return {r:'2등',c:'var(--blue)'};
+  if(myNum===bonusNum) return {r:'보너스',c:'var(--orange)'};
+  for(let l=5;l>=1;l--){ if(myNum.slice(-l)===winNum.slice(-l)){const rm={5:'3등',4:'4등',3:'5등',2:'6등',1:'7등'};return {r:rm[l],c:l>=3?'var(--muted)':'var(--muted2)'}; } }
+  return {r:'낙첨',c:'var(--muted2)'};
+}
+function aGenAuto(count){
+  const L=AALL[0], wrap=document.getElementById('aAutoOut'); wrap.innerHTML='';
+  for(let i=0;i<count;i++){
+    const jo=Math.floor(Math.random()*5)+1, nums=Array.from({length:6},()=>Math.floor(Math.random()*10)).join('');
+    const rk=aGetRank(jo,nums,L.jo,L.win,L.bonus);
+    let numHtml=''; nums.split('').forEach((d,p)=>{ numHtml+=`<span style="${d===L.win[p]?'color:var(--gold);font-weight:700;':''}">${d}</span>`; });
+    const div=document.createElement('div'); div.className='auto-ticket';
+    div.innerHTML=`<div class="at-label">${String.fromCharCode(65+i)}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;background:var(--text);color:#fff;padding:3px 7px;flex-shrink:0;">${jo}조</div><div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;letter-spacing:5px;flex:1;">${numHtml}</div><div class="at-result" style="color:${rk.c}">${rk.r}</div>`;
+    wrap.appendChild(div);
+  }
+  const info=document.createElement('div');
+  info.style.cssText='margin-top:8px;padding:8px;background:var(--bg);border:1px solid var(--border);font-size:11px;color:var(--muted);';
+  info.innerHTML=`기준: <strong>${L.round}회</strong> 1등 — <strong style="color:var(--gold)">${L.jo}조 ${L.win}</strong> · <span style="color:var(--gold);font-weight:700;">금색</span> = 자리별 일치`;
+  wrap.appendChild(info);
+}
+
+// 연금 과거
+function aSetHist(n,el){
+  document.querySelectorAll('#aHistTabs .ptab').forEach(t=>t.classList.remove('active')); el.classList.add('active');
+  const data=AALL.slice(0,n), L=AALL[0];
+  const joCnts=Array(6).fill(0); data.forEach(h=>joCnts[h.jo]++);
+  const topJo=joCnts.indexOf(Math.max(...joCnts.slice(1)));
+  document.getElementById('aHistSum').innerHTML=`<div class="sum-card"><div class="sum-val">${n}</div><div class="sum-label">표시 회차</div></div><div class="sum-card"><div class="sum-val">${data[data.length-1].round}회</div><div class="sum-label">시작 회차</div></div><div class="sum-card"><div class="sum-val">${topJo}조</div><div class="sum-label">최다 출현 조</div></div>`;
+  const list=document.getElementById('aHistList'); list.innerHTML='';
+  data.forEach(h=>{
+    const div=document.createElement('div'); div.className='hist-item';
+    div.innerHTML=`<div class="hi-round">${h.round}회</div><div class="hi-date">${h.date}</div><div class="hi-jo">${h.jo}조</div><div class="hi-nums">${h.win}</div><div class="hi-bonus">보너스<br>${h.bonus}</div>`;
+    list.appendChild(div);
+  });
+}
+
+// 연금 통계
+function aSetStat(n,el){
+  document.querySelectorAll('#aStatTabs .ptab').forEach(t=>t.classList.remove('active')); el.classList.add('active');
+  const data=AALL.slice(0,n);
+  const pos=Array.from({length:6},()=>Array(10).fill(0)), joCnt=Array(6).fill(0);
+  data.forEach(h=>{h.win.split('').forEach((d,i)=>pos[i][parseInt(d)]++);joCnt[h.jo]++;});
+  const maxJo=Math.max(...joCnt.slice(1));
+  const allD=Array(10).fill(0); pos.forEach(arr=>arr.forEach((c,d)=>allD[d]+=c));
+  const topD=allD.indexOf(Math.max(...allD)), coldD=allD.indexOf(Math.min(...allD));
+  document.getElementById('aStatSum').innerHTML=`<div class="sum-card"><div class="sum-val">${n}회</div><div class="sum-label">분석 범위</div></div><div class="sum-card"><div class="sum-val">${topD}</div><div class="sum-label">많이 나온 숫자 (${allD[topD]}회)</div></div><div class="sum-card"><div class="sum-val">${coldD}</div><div class="sum-label">적게 나온 숫자 (${allD[coldD]}회)</div></div>`;
+  document.getElementById('aStatPosLabel').textContent=`자리별 숫자 출현 빈도 — 최근 ${n}회`;
+  const container=document.getElementById('aStatPos'); container.innerHTML='';
+  pos.forEach((arr,pi)=>{
+    const max=Math.max(...arr,1), sIdx=[...arr.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+    const div=document.createElement('div'); div.className='pos-section';
+    let bh='<div class="digit-bars">';
+    arr.forEach((cnt,d)=>{ const h=Math.round((cnt/max)*56), rank=sIdx.indexOf(d); const cls=rank===0?'top-bar':rank<=2?'mid-bar':'low-bar'; bh+=`<div class="digit-col"><div class="digit-cnt">${cnt||''}</div><div class="digit-fill ${cls}" style="height:${h}px"></div><div class="digit-num">${d}</div></div>`; });
+    bh+='</div>'; div.innerHTML=`<div class="pos-label">${pi+1}번째 자리</div>${bh}`; container.appendChild(div);
+  });
+  const joRow=document.getElementById('aJoStat'); joRow.innerHTML='';
+  for(let j=1;j<=5;j++){const d=document.createElement('div');d.className='jo-stat-item'+(joCnt[j]===maxJo?' top-jo':'');d.innerHTML=`<div class="jo-n">${j}조</div><div class="jo-c">${joCnt[j]}회</div>`;joRow.appendChild(d);}
+}
+
+// ===== 수동 업데이트 =====
+function openUpdate(){ document.getElementById('updateModal').classList.add('open'); }
+function closeUpdate(){ document.getElementById('updateModal').classList.remove('open'); document.getElementById('updateResult').style.display='none'; }
+function showResult(msg, ok){
+  const el=document.getElementById('updateResult');
+  el.textContent=msg; el.className='update-result '+(ok?'ok':'err'); el.style.display='block';
+}
+
+function addLottoData(){
+  const round=parseInt(document.getElementById('uLottoRound').value);
+  const date=document.getElementById('uLottoDate').value.trim();
+  const numsStr=document.getElementById('uLottoNums').value.trim();
+  const bonus=parseInt(document.getElementById('uLottoBonus').value);
+  if(!round||!date||!numsStr||!bonus){ showResult('모든 항목을 입력해주세요',false); return; }
+  const nums=numsStr.split(',').map(s=>parseInt(s.trim())).filter(n=>n>=1&&n<=45);
+  if(nums.length!==6){ showResult('당첨번호 6개를 쉼표로 구분해 입력하세요 (예: 1,7,15,22,33,44)',false); return; }
+  if(LALL.find(h=>h.round===round)){ showResult(`${round}회 데이터가 이미 존재합니다`,false); return; }
+  nums.sort((a,b)=>a-b);
+  LALL.unshift({round,nums,bonus,date});
+  LALL.sort((a,b)=>b.round-a.round);
+  LLATEST=LALL[0];
+  document.getElementById('lottoHeader').innerHTML=`최신 <strong>${LLATEST.round}회</strong> · ${LLATEST.date} · 매주 토요일 20:35 MBC`;
+  showResult(`✓ 로또 ${round}회 (${date}) 추가 완료 — ${nums.join(', ')} + 보너스 ${bonus}`, true);
+  document.getElementById('uLottoRound').value=''; document.getElementById('uLottoDate').value=''; document.getElementById('uLottoNums').value=''; document.getElementById('uLottoBonus').value='';
+}
+
+function addAnnuityData(){
+  const round=parseInt(document.getElementById('uAnRound').value);
+  const date=document.getElementById('uAnDate').value.trim();
+  const jo=parseInt(document.getElementById('uAnJo').value);
+  const win=document.getElementById('uAnWin').value.trim().replace(/\s/g,'');
+  const bonus=document.getElementById('uAnBonus').value.trim().replace(/\s/g,'');
+  if(!round||!date||!win||!bonus){ showResult('모든 항목을 입력해주세요',false); return; }
+  if(win.length!==6||!/^\d+$/.test(win)){ showResult('1등 번호는 숫자 6자리여야 합니다 (예: 123456)',false); return; }
+  if(bonus.length!==6||!/^\d+$/.test(bonus)){ showResult('보너스 번호는 숫자 6자리여야 합니다',false); return; }
+  if(AALL.find(h=>h.round===round)){ showResult(`${round}회 데이터가 이미 존재합니다`,false); return; }
+  AALL.unshift({round,jo,win,bonus,date});
+  AALL.sort((a,b)=>b.round-a.round);
+  document.getElementById('aLatestInfo').textContent=`${AALL[0].round}회`;
+  showResult(`✓ 연금복권 ${round}회 (${date}) 추가 완료 — ${jo}조 ${win} / 보너스 ${bonus}`, true);
+  document.getElementById('uAnRound').value=''; document.getElementById('uAnDate').value=''; document.getElementById('uAnWin').value=''; document.getElementById('uAnBonus').value='';
+}
+
+// ===== 초기화 =====
+aSetHist(10, document.querySelector('#aHistTabs .ptab'));
+aSetStat(10, document.querySelector('#aStatTabs .ptab'));
+</script>
+</body>
+</html>
