@@ -3,1969 +3,1400 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>복권 시뮬레이터</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<title>로또 6/45 — 비너스 추첨 시뮬</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:#f7f6f2; --bg2:#ffffff; --border:#e2e0d8; --border2:#d0cdc4;
-  --text:#1c1b18; --muted:#888580; --muted2:#b8b4ac;
-  --red:#d63030; --blue:#2b6cb0; --gold:#c8920a; --gold2:#a87608;
-  --green:#276749; --gray:#64686e; --orange:#d65a10;
+:root{
+  --bg:#090a0e;--bg2:#111318;--bg3:#181b22;--border:#222536;
+  --text:#e8e6f0;--muted:#7a7890;--muted2:#3e3d58;
+  --red:#d63030;--gold:#c8920a;--cyan:#1ab8c4;--green:#2a9f52;
+  --m1:#1ab8c4;--m2:#e06030;--m3:#2a9f52;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
-/* ===== 잠금 화면 ===== */
-#lockScreen {
-  position:fixed;inset:0;background:var(--bg);z-index:9999;
-  display:flex;align-items:center;justify-content:center;
-}
-.lock-box {
-  width:100%;max-width:340px;padding:0 20px;text-align:center;
-}
-.lock-icon { font-size:40px;margin-bottom:20px; }
-.lock-title { font-size:22px;font-weight:700;margin-bottom:6px; }
-.lock-sub { font-size:12px;color:var(--muted);margin-bottom:28px; }
-.lock-dots { display:flex;justify-content:center;gap:12px;margin-bottom:24px; }
-.lock-dot {
-  width:14px;height:14px;border-radius:50%;
-  border:2px solid var(--border2);background:var(--bg);
-  transition:all 0.2s;
-}
-.lock-dot.filled { background:var(--text);border-color:var(--text); }
-.lock-dot.error { background:var(--red);border-color:var(--red);animation:shake 0.3s; }
-.keypad { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto; }
-.key {
-  aspect-ratio:1;background:var(--bg2);border:1px solid var(--border);
-  font-size:20px;font-weight:600;font-family:'IBM Plex Mono',monospace;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all 0.12s;user-select:none;
-}
-.key:hover{background:var(--border);}
-.key:active{transform:scale(0.94);}
-.key.del{font-size:14px;color:var(--muted);}
-.key.empty{background:transparent;border-color:transparent;cursor:default;}
-.lock-msg{font-size:11px;color:var(--red);margin-top:14px;min-height:16px;}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+/* ── 탭 네비 ── */
+.nav{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg2);}
+.nav-tab{padding:11px 18px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;}
+.nav-tab.on{color:var(--cyan);border-bottom-color:var(--cyan);}
+.nav-tab:hover{color:var(--text);}
 
-/* ===== 메인 앱 ===== */
-.wrap{max-width:700px;margin:0 auto;padding:20px 14px 80px;}
+/* ── 페이지 ── */
+.page{display:none;max-width:1100px;margin:0 auto;padding:16px 12px 60px;}
+.page.on{display:block;}
 
-/* 헤더 */
-.app-header{display:flex;justify-content:space-between;align-items:flex-end;padding:22px 0 18px;border-bottom:2px solid var(--text);margin-bottom:18px;}
-.ah-left .ah-sub{font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;}
-.ah-left h1{font-size:21px;font-weight:700;}
-.ah-right{display:flex;gap:8px;align-items:center;}
+/* ── 공통 카드 ── */
+.card{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:12px;}
+.sl{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
 
-/* 앱 탭 (로또/연금) */
-.app-tabs{display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);}
-.app-tab{flex:1;padding:13px 8px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);transition:all 0.18s;letter-spacing:0.3px;}
-.app-tab.active{background:var(--text);color:#fff;}
-.app-tab:hover:not(.active){background:var(--border);}
-.app-view{display:none;}.app-view.active{display:block;}
+/* ── 추첨 페이지 ── */
+.draw-layout{display:grid;grid-template-columns:1fr 280px;gap:12px;}
+.canvas-wrap{background:var(--bg2);border:1px solid var(--border);overflow:hidden;}
+canvas{display:block;width:100%;height:auto;}
 
-/* 로딩 */
-.load-wrap{margin-bottom:14px;}
-.load-bg{height:2px;background:var(--border);}
-.load-fill{height:2px;background:var(--red);width:0%;transition:width 0.2s;}
-.load-text{font-size:11px;color:var(--muted);margin-top:5px;text-align:center;}
+/* 호기 선택 */
+.machine-sel{display:flex;gap:6px;margin-bottom:10px;}
+.mbtn{flex:1;padding:10px 6px;text-align:center;cursor:pointer;border:1px solid var(--border);background:var(--bg3);transition:all .15s;border-radius:3px;}
+.mbtn:hover{border-color:var(--muted);}
+.mbtn.on{border-width:2px;}
+.mbtn[data-m="1"].on{border-color:var(--m1);background:rgba(26,184,196,.1);}
+.mbtn[data-m="2"].on{border-color:var(--m2);background:rgba(224,96,48,.1);}
+.mbtn[data-m="3"].on{border-color:var(--m3);background:rgba(42,159,82,.1);}
+.mbtn-name{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;display:block;margin-bottom:2px;}
+.mbtn-desc{font-size:8px;color:var(--muted);line-height:1.5;}
+.mbtn[data-m="1"] .mbtn-name{color:var(--m1);}
+.mbtn[data-m="2"] .mbtn-name{color:var(--m2);}
+.mbtn[data-m="3"] .mbtn-name{color:var(--m3);}
 
-/* 내부 탭 */
-.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;}
-.tab{flex:1;padding:11px 4px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;color:var(--muted2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.18s;letter-spacing:0.3px;}
-.tab.active{color:var(--text);border-bottom-color:var(--text);}
-.tab:hover{color:var(--muted);}
-.panel{display:none;}.panel.active{display:block;}
+/* 게임 수 선택 */
+.game-sel{display:flex;gap:6px;margin-bottom:10px;}
+.gbtn{flex:1;padding:8px;text-align:center;cursor:pointer;border:1px solid var(--border);background:var(--bg3);font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;transition:all .15s;border-radius:3px;}
+.gbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(200,146,10,.1);}
+.gbtn:hover{border-color:var(--muted);}
 
-/* 카드 */
-.card{background:var(--bg2);border:1px solid var(--border);padding:18px;margin-bottom:12px;}
-.sec-label{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;}
-.divider{height:1px;background:var(--border);margin:16px 0;}
+/* 결과 홀더 */
+.holders{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px;}
+.holder-game{background:var(--bg3);border:1px solid var(--border);padding:6px;border-radius:3px;}
+.hg-label{font-size:8px;color:var(--muted);margin-bottom:4px;font-family:'IBM Plex Mono',monospace;}
+.hg-balls{display:flex;gap:2px;flex-wrap:wrap;}
+.hball{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;color:#fff;border:1px solid var(--border);background:var(--bg2);}
+.hball.filled{border:none;animation:pop .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop{0%{transform:scale(1.4)}100%{transform:scale(1)}}
+.hball.bonus{opacity:.85;}
 
-/* 공 (로또) */
-.ball{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:600;color:#fff;flex-shrink:0;transition:all 0.25s;}
-.ball.lg{width:44px;height:44px;font-size:14px;}
-.ball.md{width:34px;height:34px;font-size:12px;}
-.ball.sm{width:28px;height:28px;font-size:10px;}
-.ball.xs{width:22px;height:22px;font-size:8px;}
-.ball.empty{background:var(--bg);border:2px dashed var(--border2);color:var(--muted2);}
-.ball.dim{opacity:0.18;}
-.ball.spinning{animation:bs 0.08s infinite;}
-.ball.landed{animation:bl 0.3s cubic-bezier(0.34,1.56,0.64,1);}
-.b1{background:#e6a817;}.b2{background:#3a82d6;}.b3{background:#d63030;}.b4{background:#64686e;}.b5{background:#2a8f52;}
-@keyframes bs{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-@keyframes bl{0%{transform:scale(1.35)}100%{transform:scale(1)}}
-.balls-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-.plus{font-size:14px;color:var(--muted2);margin:0 2px;}
+/* 링캡 */
+.caps{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;}
+.cap{background:var(--bg3);border:1px solid var(--border);padding:5px 6px;text-align:center;border-radius:2px;transition:all .2s;}
+.cap.full{background:rgba(26,184,196,.2);border-color:var(--cyan);}
+.cap.open{background:rgba(200,146,10,.12);border-color:var(--gold);}
+.cn{font-size:8px;color:var(--muted);display:block;margin-bottom:2px;}
+.cv{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--muted2);}
+.cap.full .cv{color:var(--cyan);}
 
-/* 연금복권 추첨 */
-.draw-stage{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;margin:16px 0;}
-.draw-jo{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;background:var(--text);color:#fff;padding:10px 12px;min-width:48px;text-align:center;transition:background 0.3s;}
-.draw-jo.spin{background:var(--gold);}
-.sep{font-size:18px;color:var(--border2);}
-.d-ball{width:46px;height:46px;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--muted2);transition:all 0.25s;}
-.d-ball.spinning{border-color:var(--gold);color:var(--gold);animation:ds 0.08s infinite;}
-.d-ball.done-ball{border-color:var(--text);color:var(--text);background:var(--bg2);animation:db 0.3s cubic-bezier(0.34,1.56,0.64,1);}
-@keyframes ds{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-@keyframes db{0%{transform:scale(1.35)}100%{transform:scale(1)}}
+/* 진행바 */
+.pbar-wrap{margin-bottom:8px;}
+.pbar-top{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;}
+.ptlab{font-weight:700;}.ptsec{color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.pbg{height:2px;background:var(--border);}
+.pf{height:2px;width:0%;transition:width .1s;}
+.pst{font-size:10px;color:var(--muted);margin-top:3px;min-height:13px;}
+.pst.on{color:var(--cyan);}
 
 /* 버튼 */
-.btn-row{display:flex;gap:7px;flex-wrap:wrap;}
-.btn{padding:10px 16px;font-family:'IBM Plex Sans KR',sans-serif;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--text);transition:all 0.15s;}
-.btn-fill{background:var(--text);color:#fff;}.btn-fill:hover{background:#333;}
-.btn-ghost{background:var(--bg2);color:var(--text);}.btn-ghost:hover{background:var(--bg);}
-.btn-red{background:var(--red);color:#fff;border-color:var(--red);}.btn-red:hover{background:#b52020;}
-.btn-gold{background:var(--gold);color:#fff;border-color:var(--gold);}.btn-gold:hover{background:var(--gold2);}
-.btn-sm{padding:7px 12px;font-size:11px;}
-.btn:disabled{opacity:0.3;cursor:not-allowed;}
+.btns{display:flex;gap:6px;}
+.btn{padding:9px 14px;font-family:'IBM Plex Sans KR',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);transition:all .15s;}
+.btn-draw{background:var(--red);color:#fff;border-color:var(--red);flex:1;}
+.btn-draw:hover{background:#b52020;}
+.btn-reset{background:var(--bg3);color:var(--text);}
+.btn-reset:hover{background:var(--border);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
 
-/* 타이머 */
-.t-wrap{margin-bottom:14px;}
-.t-top{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;}
-.t-top .tl{font-weight:700;color:var(--text);}
-.t-top .ts{color:var(--muted);font-family:'IBM Plex Mono',monospace;}
-.t-bg{height:2px;background:var(--border);}
-.t-bar{height:2px;width:0%;transition:width 0.1s linear;}
-.t-bar.red{background:var(--red);}
-.t-bar.gold{background:var(--gold);}
-.t-status{font-size:11px;color:var(--muted);margin-top:5px;min-height:16px;}
-.t-status.on{color:var(--text);font-weight:600;}
+/* ── 통계 페이지 ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:12px;}
+.stat-card{background:var(--bg3);border:1px solid var(--border);padding:10px;text-align:center;}
+.sc-val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--cyan);}
+.sc-lab{font-size:9px;color:var(--muted);margin-top:3px;}
 
-/* 번호피커 */
-.picker{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;}
-.pb{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted2);display:flex;align-items:center;justify-content:center;transition:all 0.12s;}
-.pb:hover{border-color:var(--border2);color:var(--muted);}
-.pb.sel{color:#fff;border-color:transparent;}
-.sel-row{display:flex;gap:5px;align-items:center;min-height:42px;padding:7px 10px;background:var(--bg);border:1px dashed var(--border2);margin-bottom:10px;flex-wrap:wrap;}
-.sel-hint{font-size:11px;color:var(--muted2);}
+/* 번호 빈도 그리드 */
+.freq-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin-bottom:12px;}
+.freq-cell{text-align:center;padding:4px 2px;border-radius:2px;}
+.fc-num{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;}
+.fc-cnt{font-size:8px;color:var(--muted);}
+.fc-bar{height:2px;background:var(--muted2);margin-top:2px;border-radius:1px;}
 
-/* 분석 */
-.analysis-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
-@media(min-width:500px){.analysis-summary{grid-template-columns:repeat(4,1fr);}}
-.as-card{background:var(--bg);border:1px solid var(--border);padding:12px;text-align:center;}
-.as-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--red);}
-.as-label{font-size:10px;color:var(--muted);margin-top:3px;}
-.num-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
-.num-row:last-child{border-bottom:none;}
-.nr-info{flex:1;}
-.nr-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
-.nr-cnt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
-.nr-pct{font-size:11px;color:var(--muted);}
-.nr-bar-bg{height:4px;background:var(--border);border-radius:2px;}
-.nr-bar{height:4px;border-radius:2px;transition:width 0.6s ease;}
-.nr-dots{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;}
-.dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
-.dot.miss{background:var(--border);}
-.nr-last{font-size:10px;color:var(--muted);margin-top:4px;}
-.tag{display:inline-block;padding:1px 6px;font-size:9px;font-weight:700;letter-spacing:0.5px;border-radius:2px;}
-.tag-hot{background:#fde8e8;color:var(--red);}
-.tag-cold{background:#e8f0fc;color:var(--blue);}
-.tag-mid{background:var(--bg);color:var(--muted);border:1px solid var(--border);}
-.bm-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:5px;}
-.bm-round{font-size:10px;color:var(--muted);width:42px;flex-shrink:0;line-height:1.5;}
-.bm-balls{display:flex;gap:3px;flex:1;flex-wrap:wrap;align-items:center;}
-.bm-result{text-align:right;flex-shrink:0;}
-.bm-cnt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;}
+/* 과거 번호 */
+.hist-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bg3);}
+.hist-round{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);width:40px;flex-shrink:0;}
+.hist-date{font-size:9px;color:var(--muted2);width:80px;flex-shrink:0;}
+.hist-balls{display:flex;gap:3px;flex:1;}
+.sball{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:#fff;}
+.sball.bonus-b{opacity:.75;border:1px dashed rgba(255,255,255,.3);}
 
-/* 통계/과거 탭 */
-.period-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;}
-.ptab{padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--muted);transition:all 0.15s;}
-.ptab.active{background:var(--text);color:#fff;border-color:var(--text);}
-.freq-grid{display:flex;flex-direction:column;gap:1px;}
-.freq-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);}
-.freq-row:last-child{border-bottom:none;}
-.fr-rank{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted2);width:18px;text-align:right;flex-shrink:0;}
-.fr-bar-wrap{flex:1;height:8px;background:var(--border);}
-.fr-bar{height:8px;transition:width 0.5s ease;}
-.fr-cnt{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);width:32px;text-align:right;flex-shrink:0;}
-.fr-last{font-size:10px;color:var(--muted2);width:52px;text-align:right;flex-shrink:0;}
-.stat-top{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-.sti{flex:1;min-width:110px;background:var(--bg);border:1px solid var(--border);padding:11px;}
-.sti-val{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;}
-.sti-label{font-size:10px;color:var(--muted);margin-top:2px;}
+/* ── 리포트 페이지 ── */
+.report-header{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.rh-machine{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;}
+.rh-date{font-size:10px;color:var(--muted);}
+.report-games{display:grid;gap:10px;margin-bottom:12px;}
+.rg-card{background:var(--bg2);border:1px solid var(--border);padding:12px;}
+.rg-title{font-size:10px;color:var(--muted);margin-bottom:8px;font-family:'IBM Plex Mono',monospace;}
+.rg-balls{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.rball{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:#fff;}
+.rball.bonus-r{opacity:.8;border:2px dashed rgba(255,255,255,.4);}
+.rg-tags{display:flex;gap:4px;flex-wrap:wrap;}
+.tag{padding:2px 7px;border-radius:10px;font-size:9px;font-weight:600;border:1px solid;}
+.tag-cyan{color:var(--cyan);border-color:rgba(26,184,196,.4);background:rgba(26,184,196,.08);}
+.tag-gold{color:var(--gold);border-color:rgba(200,146,10,.4);background:rgba(200,146,10,.08);}
+.tag-red{color:var(--red);border-color:rgba(214,48,48,.4);background:rgba(214,48,48,.08);}
+.tag-green{color:var(--green);border-color:rgba(42,159,82,.4);background:rgba(42,159,82,.08);}
+.tag-muted{color:var(--muted);border-color:rgba(122,120,144,.3);background:rgba(122,120,144,.06);}
 
-/* 자동생성 */
-.auto-ticket{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);margin-bottom:5px;}
-.at-label{font-size:10px;color:var(--muted2);width:16px;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
-.at-balls{display:flex;gap:3px;flex:1;flex-wrap:wrap;align-items:center;}
-.at-result{font-size:11px;font-weight:600;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
+/* 분석 요약 */
+.analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.ag-item{background:var(--bg3);border:1px solid var(--border);padding:10px;}
+.ag-label{font-size:9px;color:var(--muted);margin-bottom:5px;}
+.ag-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--text);}
+.ag-sub{font-size:9px;color:var(--muted);margin-top:2px;}
 
-/* 연금 과거/통계 */
-.hist-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg2);border:1px solid var(--border);margin-bottom:2px;}
-.hi-round{font-size:10px;color:var(--muted);width:38px;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
-.hi-date{font-size:10px;color:var(--muted2);width:72px;flex-shrink:0;}
-.hi-jo{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--gold);color:#fff;padding:2px 6px;flex-shrink:0;}
-.hi-nums{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;letter-spacing:4px;flex:1;}
-.hi-bonus{font-size:9px;color:var(--muted);flex-shrink:0;text-align:right;}
-.pos-section{margin-bottom:18px;}
-.pos-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-bottom:7px;font-weight:700;}
-.digit-bars{display:flex;gap:4px;align-items:flex-end;height:60px;}
-.digit-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
-.digit-fill{width:100%;min-height:2px;transition:height 0.5s ease;}
-.digit-fill.top-bar{background:var(--gold);}
-.digit-fill.mid-bar{background:var(--muted2);}
-.digit-fill.low-bar{background:var(--border);}
-.digit-num{font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
-.digit-cnt{font-size:8px;color:var(--muted2);}
-.jo-stat-row{display:flex;gap:6px;margin-top:10px;}
-.jo-stat-item{flex:1;background:var(--bg);border:1px solid var(--border);padding:10px 6px;text-align:center;}
-.jo-n{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;}
-.jo-c{font-size:10px;color:var(--muted);margin-top:2px;}
-.jo-stat-item.top-jo{border-color:var(--gold);background:#fef9e7;}.jo-stat-item.top-jo .jo-n{color:var(--gold);}
-.sum-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
-.sum-card{background:var(--bg);border:1px solid var(--border);padding:10px;text-align:center;}
-.sum-val{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:700;color:var(--gold);}
-.sum-label{font-size:9px;color:var(--muted);margin-top:2px;}
+/* 번호 분포 바 */
+.zone-bar{display:flex;gap:3px;margin-bottom:8px;}
+.zb{flex:1;padding:6px 4px;text-align:center;border-radius:2px;font-size:9px;}
+.zb-cnt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;display:block;}
 
-/* 수동 업데이트 모달 */
-#updateModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:8888;align-items:center;justify-content:center;}
-#updateModal.open{display:flex;}
-.modal-box{background:var(--bg2);border:1px solid var(--border);padding:24px;width:100%;max-width:500px;margin:20px;max-height:80vh;overflow-y:auto;}
-.modal-title{font-size:16px;font-weight:700;margin-bottom:6px;}
-.modal-sub{font-size:11px;color:var(--muted);margin-bottom:18px;line-height:1.7;}
-.form-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
-.form-label{font-size:11px;color:var(--muted);width:70px;flex-shrink:0;}
-.form-input{flex:1;padding:8px 10px;border:1px solid var(--border);background:var(--bg);font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;min-width:80px;}
-.form-input:focus{border-color:var(--text);}
-.form-select{padding:8px 10px;border:1px solid var(--border);background:var(--bg);font-size:13px;outline:none;cursor:pointer;}
-.update-result{margin-top:12px;padding:10px;font-size:12px;border:1px solid var(--border);background:var(--bg);display:none;}
-.update-result.ok{border-color:var(--green);color:var(--green);}
-.update-result.err{border-color:var(--red);color:var(--red);}
+/* 과거 비교 */
+.match-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bg3);}
+.match-cnt{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:var(--cyan);width:20px;}
 
-/* 잠금 버튼 */
-.lock-btn{padding:7px 12px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--muted);transition:all 0.15s;}
-.lock-btn:hover{border-color:var(--text);color:var(--text);}
+/* ptabs */
+.ptabs{display:flex;gap:4px;margin-bottom:10px;}
+.ptab{padding:5px 10px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);}
+.ptab.on{border-color:var(--cyan);color:var(--cyan);}
+
+/* ── 저장 번호 목록 ── */
+.saved-wrap{max-width:1100px;margin:0 auto;padding:0 12px 50px;}
+.saved-header{display:flex;align-items:center;gap:8px;padding:10px 14px 8px;border-bottom:1px solid var(--border);background:var(--bg2);border:1px solid var(--border);margin-bottom:8px;}
+.saved-title{font-size:11px;font-weight:700;color:var(--text);flex:1;}
+.saved-count{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--cyan);background:rgba(26,184,196,.12);padding:2px 7px;border-radius:8px;}
+.saved-btns{display:flex;gap:5px;}
+.sv-btn{padding:5px 10px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);transition:all .15s;}
+.sv-btn:hover{color:var(--text);border-color:var(--muted);}
+.sv-btn.del-sel{color:var(--gold);}
+.sv-btn.del-all{color:var(--red);border-color:rgba(214,48,48,.3);}
+.sv-btn.del-all:hover{background:rgba(214,48,48,.1);}
+.saved-list{display:flex;flex-direction:column;gap:4px;}
+.saved-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--border);transition:all .15s;}
+.saved-row:hover{border-color:var(--muted2);}
+.saved-row.selected{border-left-color:var(--cyan);background:rgba(26,184,196,.04);}
+.sv-check{width:14px;height:14px;cursor:pointer;accent-color:var(--cyan);flex-shrink:0;}
+.sv-idx{font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--muted2);width:20px;text-align:center;flex-shrink:0;}
+.sv-machine{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;width:28px;flex-shrink:0;}
+.sv-balls{display:flex;gap:3px;flex:1;align-items:center;}
+.svball{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;}
+.svball.bns{opacity:.75;border:1px dashed rgba(255,255,255,.4);}
+.sv-plus{font-size:11px;color:var(--muted2);margin:0 1px;}
+.sv-tags{display:flex;gap:3px;flex-wrap:wrap;margin-left:4px;}
+.sv-tag{padding:1px 5px;border-radius:8px;font-size:8px;font-weight:600;border:1px solid;}
+.sv-meta{font-size:8px;color:var(--muted2);white-space:nowrap;margin-left:auto;}
+.sv-del{padding:3px 7px;font-size:9px;cursor:pointer;border:1px solid rgba(214,48,48,.25);background:transparent;color:rgba(214,48,48,.5);flex-shrink:0;}
+.sv-del:hover{background:rgba(214,48,48,.12);color:var(--red);}
+.saved-empty{text-align:center;padding:28px;color:var(--muted);font-size:11px;background:var(--bg2);border:1px solid var(--border);}
+
+/* ── 비번 오버레이 ── */
+#pin-overlay{position:fixed;inset:0;background:#090a0e;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+#pin-overlay.hidden{display:none;}
+.pin-logo{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:#1ab8c4;margin-bottom:4px;letter-spacing:2px;}
+.pin-sub{font-size:10px;color:#7a7890;letter-spacing:3px;margin-bottom:32px;}
+.pin-dots{display:flex;gap:12px;margin-bottom:24px;}
+.pin-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid #3e3d58;background:transparent;transition:all .15s;}
+.pin-dot.filled{background:#1ab8c4;border-color:#1ab8c4;box-shadow:0 0 6px #1ab8c4;}
+.pin-dot.error{background:#d63030;border-color:#d63030;}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:180px;}
+.pin-key{padding:14px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;cursor:pointer;background:#111318;border:1px solid #222536;color:#e8e6f0;transition:all .12s;user-select:none;}
+.pin-key:hover{background:#181b22;border-color:#3e3d58;}
+.pin-key:active{background:#222536;}
+.pin-key.del{font-size:12px;color:#7a7890;}
+.pin-err{font-size:10px;color:#d63030;margin-top:14px;min-height:14px;letter-spacing:1px;}
 </style>
 </head>
 <body>
 
-<!-- ===== 잠금 화면 ===== -->
-<div id="lockScreen">
-  <div class="lock-box">
-    <div class="lock-icon">🔐</div>
-    <div class="lock-title">복권 시뮬레이터</div>
-    <div class="lock-sub">4자리 비밀번호를 입력하세요</div>
-    <div class="lock-dots">
-      <div class="lock-dot" id="dot0"></div>
-      <div class="lock-dot" id="dot1"></div>
-      <div class="lock-dot" id="dot2"></div>
-      <div class="lock-dot" id="dot3"></div>
+<!-- 비번 오버레이 -->
+<div id="pin-overlay">
+  <div class="pin-logo">VENUS SIM</div>
+  <div class="pin-sub">LOTTO 6/45 · DRAW SYSTEM</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-pad">
+    <div class="pin-key" onclick="pinKey('1')">1</div>
+    <div class="pin-key" onclick="pinKey('2')">2</div>
+    <div class="pin-key" onclick="pinKey('3')">3</div>
+    <div class="pin-key" onclick="pinKey('4')">4</div>
+    <div class="pin-key" onclick="pinKey('5')">5</div>
+    <div class="pin-key" onclick="pinKey('6')">6</div>
+    <div class="pin-key" onclick="pinKey('7')">7</div>
+    <div class="pin-key" onclick="pinKey('8')">8</div>
+    <div class="pin-key" onclick="pinKey('9')">9</div>
+    <div class="pin-key del" onclick="pinDel()">⌫</div>
+    <div class="pin-key" onclick="pinKey('0')">0</div>
+    <div class="pin-key del" onclick="pinClear()">C</div>
+  </div>
+  <div class="pin-err" id="pin-err"></div>
+</div>
+
+<!-- 네비게이션 -->
+<nav class="nav">
+  <div class="nav-tab on" onclick="showPage('draw')">🎱 추첨</div>
+  <div class="nav-tab" onclick="showPage('report')">📊 분석</div>
+  <div class="nav-tab" onclick="showPage('history')">📋 과거 번호</div>
+  <div class="nav-tab" onclick="showPage('stat')">📈 통계</div>
+</nav>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 추첨 페이지                                -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page on" id="page-draw">
+<div class="draw-layout">
+
+  <!-- 캔버스 -->
+  <div>
+    <div class="canvas-wrap"><canvas id="vc" width="700" height="720"></canvas></div>
+  </div>
+
+  <!-- 사이드 패널 -->
+  <div>
+    <!-- 호기 선택 -->
+    <div class="card">
+      <div class="sl">호기 선택</div>
+      <div class="machine-sel">
+        <div class="mbtn on" data-m="1" onclick="selectMachine(1)">
+          <span class="mbtn-name">1호기</span>
+          <span class="mbtn-desc">이월수·동끝수<br>구간몰림·연번</span>
+        </div>
+        <div class="mbtn" data-m="2" onclick="selectMachine(2)">
+          <span class="mbtn-name">2호기</span>
+          <span class="mbtn-desc">1궁·9궁 강함<br>대각이웃·꼴통</span>
+        </div>
+        <div class="mbtn" data-m="3" onclick="selectMachine(3)">
+          <span class="mbtn-name">3호기</span>
+          <span class="mbtn-desc">연번·3연번<br>골고루 분포</span>
+        </div>
+      </div>
+
+      <!-- 게임 수 선택 -->
+      <div class="sl">게임 수</div>
+      <div class="game-sel">
+        <div class="gbtn" data-g="1" onclick="selectGames(1)">1게임</div>
+        <div class="gbtn on" data-g="3" onclick="selectGames(3)">3게임</div>
+        <div class="gbtn" data-g="6" onclick="selectGames(6)">6게임</div>
+        <div class="gbtn" data-g="9" onclick="selectGames(9)">9게임</div>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:8px;" id="game-desc">각 호기 1게임씩 (총 3게임)</div>
     </div>
-    <div class="keypad">
-      <div class="key" onclick="keyPress('1')">1</div>
-      <div class="key" onclick="keyPress('2')">2</div>
-      <div class="key" onclick="keyPress('3')">3</div>
-      <div class="key" onclick="keyPress('4')">4</div>
-      <div class="key" onclick="keyPress('5')">5</div>
-      <div class="key" onclick="keyPress('6')">6</div>
-      <div class="key" onclick="keyPress('7')">7</div>
-      <div class="key" onclick="keyPress('8')">8</div>
-      <div class="key" onclick="keyPress('9')">9</div>
-      <div class="key empty"></div>
-      <div class="key" onclick="keyPress('0')">0</div>
-      <div class="key del" onclick="keyDel()">⌫</div>
+
+    <!-- 진행 상태 -->
+    <div class="card">
+      <div class="sl">추첨 진행</div>
+      <div style="display:flex;align-items:center;gap:7px;padding:6px 9px;background:var(--bg3);border:1px solid var(--border);margin-bottom:8px;">
+        <div class="dot" id="dot" style="width:6px;height:6px;border-radius:50%;background:var(--muted2);flex-shrink:0;"></div>
+        <span id="phl" style="font-size:11px;font-weight:600;">대기 중</span>
+        <span id="game-prog" style="margin-left:auto;font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;"></span>
+      </div>
+      <div class="pbar-wrap">
+        <div class="pbar-top"><span class="ptlab" id="ptlab">-</span><span class="ptsec" id="ptsec"></span></div>
+        <div class="pbg"><div class="pf" id="pfi" style="background:var(--cyan);"></div></div>
+        <div class="pst" id="pst"></div>
+      <div id="game-elapsed" style="font-size:9px;color:var(--muted);margin-top:4px;font-family:'IBM Plex Mono',monospace;min-height:12px;"></div>
+      </div>
+      <div class="sl">링캡</div>
+      <div class="caps">
+        <div class="cap" id="rc0"><span class="cn">CAP 1</span><span class="cv" id="rv0">—</span></div>
+        <div class="cap" id="rc1"><span class="cn">CAP 2</span><span class="cv" id="rv1">—</span></div>
+        <div class="cap" id="rc2"><span class="cn">CAP 3</span><span class="cv" id="rv2">—</span></div>
+        <div class="cap" id="rc3"><span class="cn">CAP 4</span><span class="cv" id="rv3">—</span></div>
+      </div>
     </div>
-    <div class="lock-msg" id="lockMsg"></div>
+
+    <!-- 결과 -->
+    <div class="card">
+      <div class="sl">추첨 결과</div>
+      <div class="holders" id="holders"></div>
+      <div class="btns">
+        <button class="btn btn-draw" id="sb" onclick="startAll()">▶ 추첨 시작</button>
+        <button class="btn btn-reset" onclick="resetAll()">↺</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 저장 번호 목록 (항상 하단에 고정)          -->
+<!-- ══════════════════════════════════════════ -->
+<div class="saved-wrap" id="saved-wrap">
+  <div class="saved-header">
+    <div class="saved-title">📋 저장된 번호 목록</div>
+    <div class="saved-count" id="saved-count">0 / 20</div>
+    <div class="saved-btns">
+      <button class="sv-btn" onclick="selectAllSaved()">전체선택</button>
+      <button class="sv-btn del-sel" onclick="deleteSelected()">선택삭제</button>
+      <button class="sv-btn del-all" onclick="deleteAll()">전체삭제</button>
+    </div>
+  </div>
+  <div class="saved-list" id="saved-list">
+    <div class="saved-empty">추첨 후 번호가 여기에 자동으로 저장됩니다 (최대 20조합)</div>
   </div>
 </div>
 
-<!-- ===== 메인 앱 ===== -->
-<div id="mainApp" style="display:none;">
-<div class="wrap">
-
-  <div class="app-header">
-    <div class="ah-left">
-      <div class="ah-sub">LOTTERY SIMULATOR</div>
-      <h1>복권 시뮬레이터</h1>
-    </div>
-    <div class="ah-right">
-      <button class="lock-btn" onclick="openUpdate()">📥 업데이트</button>
-      <button class="lock-btn" onclick="doLock()">🔒 잠금</button>
-    </div>
+<!-- ══════════════════════════════════════════ -->
+<!-- 분석/리포트 페이지                         -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page" id="page-report">
+  <div id="report-empty" class="card" style="text-align:center;padding:40px;color:var(--muted);">
+    추첨 후 분석 리포트가 여기에 표시됩니다.
   </div>
+  <div id="report-content" style="display:none;"></div>
+</div>
 
-  <!-- 앱 선택 탭 -->
-  <div class="app-tabs">
-    <div class="app-tab active" onclick="switchApp('lotto')">🎱 로또 6/45</div>
-    <div class="app-tab" onclick="switchApp('annuity')">💛 연금복권 720+</div>
-    <div class="app-tab" onclick="switchApp('venus')">⚙️ 비너스 추첨기</div>
+<!-- ══════════════════════════════════════════ -->
+<!-- 과거 번호 페이지                           -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page" id="page-history">
+  <div class="card">
+    <div class="sl">회차 범위</div>
+    <div class="ptabs" id="htabs">
+      <div class="ptab on" onclick="setHist(20,this)">최근 20회</div>
+      <div class="ptab" onclick="setHist(50,this)">50회</div>
+      <div class="ptab" onclick="setHist(100,this)">100회</div>
+      <div class="ptab" onclick="setHist(0,this)">전체</div>
+    </div>
+    <div id="hist-out"></div>
   </div>
+</div>
 
-  <!-- ==================== 로또 앱 ==================== -->
-  <div class="app-view active" id="view-lotto">
-    <div class="load-wrap">
-      <div class="load-bg"><div class="load-fill" id="loadBar"></div></div>
-      <div class="load-text" id="loadText">동행복권 API 연결 중...</div>
+<!-- ══════════════════════════════════════════ -->
+<!-- 통계 페이지                               -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page" id="page-stat">
+  <div class="card">
+    <div class="sl">분석 기간</div>
+    <div class="ptabs" id="stabs">
+      <div class="ptab on" onclick="setStat(20,this)">20회</div>
+      <div class="ptab" onclick="setStat(50,this)">50회</div>
+      <div class="ptab" onclick="setStat(100,this)">100회</div>
+      <div class="ptab" onclick="setStat(0,this)">전체</div>
     </div>
-    <div id="lottoApp" style="display:none;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:14px;text-align:right;" id="lottoHeader"></div>
-      <div class="tabs" id="lottoTabs">
-        <div class="tab active" onclick="switchTab('l','draw')">추첨 시뮬</div>
-        <div class="tab" onclick="switchTab('l','auto')">자동 생성</div>
-        <div class="tab" onclick="switchTab('l','compare')">과거 분석</div>
-        <div class="tab" onclick="switchTab('l','stat')">통계</div>
-      </div>
-
-      <!-- 로또 추첨 시뮬 -->
-      <div class="panel active" id="l-panel-draw">
-        <div class="card">
-          <div class="sec-label">추첨 시뮬레이션</div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.9;">버튼 → <strong style="color:var(--text)">7초</strong> → 기계 가동 → <strong style="color:var(--text)">6초</strong> → 첫 공 확정 → 이후 <strong style="color:var(--text)">6초</strong> 간격 · 총 약 <strong style="color:var(--red)">55초</strong></div>
-          <div class="t-wrap">
-            <div class="t-top"><span class="tl" id="ldLabel">대기 중</span><span class="ts" id="ldSec"></span></div>
-            <div class="t-bg"><div class="t-bar red" id="ldBar"></div></div>
-            <div class="t-status" id="ldStatus"></div>
-          </div>
-          <div class="balls-row" id="lDrawBalls" style="margin-bottom:16px;gap:6px;">
-            <div class="ball lg empty">?</div><div class="ball lg empty">?</div><div class="ball lg empty">?</div>
-            <div class="ball lg empty">?</div><div class="ball lg empty">?</div><div class="ball lg empty">?</div>
-            <span class="plus">+</span><div class="ball lg empty" style="opacity:0.4;">?</div>
-          </div>
-          <div class="btn-row">
-            <button class="btn btn-red" id="lDrawBtn" onclick="lStartDraw()">▶ 추첨 시작</button>
-            <button class="btn btn-ghost" onclick="lResetDraw()">초기화</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 로또 자동 생성 -->
-      <div class="panel" id="l-panel-auto">
-        <div class="card">
-          <div class="sec-label">자동 번호 생성 — 미니 추첨 애니메이션</div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">공이 하나씩 실제로 뽑히는 방식 · 게임당 약 4~5초</div>
-          <div style="background:var(--bg);border:1px solid var(--border);padding:14px;margin-bottom:14px;">
-            <div style="font-size:10px;color:var(--muted);margin-bottom:10px;letter-spacing:1px;font-weight:700;">추첨 중</div>
-            <div class="balls-row" id="lMiniStage" style="gap:5px;min-height:44px;"></div>
-            <div style="font-size:11px;color:var(--muted);margin-top:8px;min-height:16px;" id="lAutoStatus">대기 중</div>
-          </div>
-          <div class="btn-row" style="margin-bottom:14px;">
-            <button class="btn btn-fill" id="lAutoBtn" onclick="lStartAutoQueue(1)">1게임</button>
-            <button class="btn btn-ghost" id="lAutoBtn5" onclick="lStartAutoQueue(5)">5게임</button>
-            <button class="btn btn-ghost" id="lAutoBtn10" onclick="lStartAutoQueue(10)">10게임</button>
-          </div>
-          <div id="lAutoOut"></div>
-        </div>
-      </div>
-
-      <!-- 로또 과거 분석 -->
-      <div class="panel" id="l-panel-compare">
-        <div class="card">
-          <div class="sec-label">번호 선택 (6개)</div>
-          <div class="sel-row" id="lSelRow"><span class="sel-hint">번호를 선택하세요 (0/6)</span></div>
-          <div class="picker" id="lPicker"></div>
-          <div class="btn-row">
-            <button class="btn btn-fill" onclick="lRunAnalysis()">상세 분석</button>
-            <button class="btn btn-ghost" onclick="lClearCmp()">초기화</button>
-          </div>
-        </div>
-        <div id="lAnalysisOut" style="display:none;">
-          <div class="card"><div class="sec-label">요약</div><div class="analysis-summary" id="lAnaSummary"></div></div>
-          <div class="card"><div class="sec-label">번호별 상세 분석</div><div id="lNumRows"></div></div>
-          <div class="card"><div class="sec-label">역대 최다 일치 TOP 5</div><div id="lBestMatches"></div></div>
-        </div>
-      </div>
-
-      <!-- 로또 통계 -->
-      <div class="panel" id="l-panel-stat">
-        <div class="card">
-          <div class="sec-label">분석 범위</div>
-          <div class="period-tabs" id="lPtabs">
-            <div class="ptab active" onclick="lSetPeriod(10,this)">10회</div>
-            <div class="ptab" onclick="lSetPeriod(20,this)">20회</div>
-            <div class="ptab" onclick="lSetPeriod(30,this)">30회</div>
-            <div class="ptab" onclick="lSetPeriod(40,this)">40회</div>
-            <div class="ptab" onclick="lSetPeriod(50,this)">50회</div>
-            <div class="ptab" onclick="lSetPeriod(60,this)">60회</div>
-          </div>
-          <div class="stat-top" id="lStatTop"></div>
-        </div>
-        <div class="card">
-          <div class="sec-label" id="lStatLabel">번호별 출현 빈도</div>
-          <div class="freq-grid" id="lFreqGrid"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== 연금복권 앱 ==================== -->
-  <div class="app-view" id="view-annuity">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;text-align:right;">최신 <strong id="aLatestInfo">306회</strong> · 매주 목요일 19:05 MBC</div>
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab('a','draw')">추첨 시뮬</div>
-      <div class="tab" onclick="switchTab('a','auto')">자동 생성</div>
-      <div class="tab" onclick="switchTab('a','hist')">과거 당첨번호</div>
-      <div class="tab" onclick="switchTab('a','stat')">통계</div>
-    </div>
-
-    <!-- 연금 추첨 -->
-    <div class="panel active" id="a-panel-draw">
-      <div class="card">
-        <div class="sec-label">추첨 시뮬레이션</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.9;">버튼 → <strong style="color:var(--text)">6초</strong> → 기계 가동 → <strong style="color:var(--text)">5초</strong> → 일 자리 확정 → 이후 <strong style="color:var(--text)">7초</strong> 간격 → 마지막 조 · 총 약 <strong style="color:var(--gold)">53초</strong></div>
-        <div class="t-wrap">
-          <div class="t-top"><span class="tl" id="adLabel">대기 중</span><span class="ts" id="adSec"></span></div>
-          <div class="t-bg"><div class="t-bar gold" id="adBar"></div></div>
-          <div class="t-status" id="adStatus"></div>
-        </div>
-        <!-- 자리별 표시: 십만 만 천 백 십 일 | 조 순서로 배치, 추첨은 일부터 -->
-        <div class="draw-stage" id="aDrawStage" style="gap:4px;">
-          <div style="text-align:center;">
-            <div class="d-ball" id="ab0" style="background:#e06030;">?</div>
-            <div style="font-size:8px;color:var(--muted);margin-top:2px;">십만</div>
-          </div>
-          <div style="text-align:center;">
-            <div class="d-ball" id="ab1" style="background:#c8920a;">?</div>
-            <div style="font-size:8px;color:var(--muted);margin-top:2px;">만</div>
-          </div>
-          <div style="text-align:center;">
-            <div class="d-ball" id="ab2" style="background:#c8c010;">?</div>
-            <div style="font-size:8px;color:var(--muted);margin-top:2px;">천</div>
-          </div>
-          <div style="text-align:center;">
-            <div class="d-ball" id="ab3" style="background:#3a82d6;">?</div>
-            <div style="font-size:8px;color:var(--muted);margin-top:2px;">백</div>
-          </div>
-          <div style="text-align:center;">
-            <div class="d-ball" id="ab4" style="background:#7b3fc4;">?</div>
-            <div style="font-size:8px;color:var(--muted);margin-top:2px;">십</div>
-          </div>
-          <div style="text-align:center;">
-            <div class="d-ball" id="ab5" style="background:#888;">?</div>
-            <div style="font-size:8px;color:var(--muted);margin-top:2px;">일</div>
-          </div>
-          <span class="sep" style="margin:0 4px;">|</span>
-          <div style="text-align:center;">
-            <div class="draw-jo" id="aDrawJo" style="min-width:44px;">?조</div>
-            <div style="font-size:8px;color:var(--muted);margin-top:2px;">조</div>
-          </div>
-        </div>
-        <div class="btn-row" style="margin-top:14px;">
-          <button class="btn btn-gold" id="aDrawBtn" onclick="aStartDraw()">▶ 추첨 시작</button>
-          <button class="btn btn-ghost" onclick="aResetDraw()">초기화</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 연금 자동 생성 -->
-    <div class="panel" id="a-panel-auto">
-      <div class="card">
-        <div class="sec-label">자동 번호 생성 — 미니 추첨 애니메이션</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">조·숫자가 하나씩 실제로 뽑히는 방식 · 게임당 약 3~4초</div>
-        <div style="background:var(--bg);border:1px solid var(--border);padding:14px;margin-bottom:14px;">
-          <div style="font-size:10px;color:var(--muted);margin-bottom:10px;letter-spacing:1px;font-weight:700;">추첨 중</div>
-          <div class="draw-stage" id="aMiniStage" style="margin:0 0 8px 0;justify-content:flex-start;"></div>
-          <div style="font-size:11px;color:var(--muted);min-height:16px;" id="aAutoStatus">대기 중</div>
-        </div>
-        <div class="btn-row" style="margin-bottom:14px;">
-          <button class="btn btn-fill" id="aAutoBtn" onclick="aStartAutoQueue(1)">1장</button>
-          <button class="btn btn-ghost" id="aAutoBtn5" onclick="aStartAutoQueue(5)">5장</button>
-          <button class="btn btn-ghost" id="aAutoBtn10" onclick="aStartAutoQueue(10)">10장</button>
-        </div>
-        <div id="aAutoOut"></div>
-      </div>
-    </div>
-
-    <!-- 연금 과거 당첨번호 -->
-    <div class="panel" id="a-panel-hist">
-      <div class="card">
-        <div class="sec-label">회차 범위</div>
-        <div class="period-tabs" id="aHistTabs">
-          <div class="ptab active" onclick="aSetHist(10,this)">10회</div>
-          <div class="ptab" onclick="aSetHist(20,this)">20회</div>
-          <div class="ptab" onclick="aSetHist(30,this)">30회</div>
-          <div class="ptab" onclick="aSetHist(40,this)">40회</div>
-          <div class="ptab" onclick="aSetHist(50,this)">50회</div>
-          <div class="ptab" onclick="aSetHist(60,this)">60회</div>
-        </div>
-        <div class="sum-row" id="aHistSum"></div>
-        <div id="aHistList"></div>
-      </div>
-    </div>
-
-    <!-- 연금 통계 -->
-    <div class="panel" id="a-panel-stat">
-      <div class="card">
-        <div class="sec-label">분석 범위</div>
-        <div class="period-tabs" id="aStatTabs">
-          <div class="ptab active" onclick="aSetStat(10,this)">10회</div>
-          <div class="ptab" onclick="aSetStat(20,this)">20회</div>
-          <div class="ptab" onclick="aSetStat(30,this)">30회</div>
-          <div class="ptab" onclick="aSetStat(40,this)">40회</div>
-          <div class="ptab" onclick="aSetStat(50,this)">50회</div>
-          <div class="ptab" onclick="aSetStat(60,this)">60회</div>
-        </div>
-        <div class="sum-row" id="aStatSum"></div>
-      </div>
-      <div class="card">
-        <div class="sec-label" id="aStatPosLabel">자리별 숫자 출현 빈도</div>
-        <div id="aStatPos"></div>
-      </div>
-      <div class="card">
-        <div class="sec-label">조(組) 출현 횟수</div>
-        <div class="jo-stat-row" id="aJoStat"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== 비너스 추첨기 ==================== -->
-  <div class="app-view" id="view-venus" style="background:#0e0f14;margin:-20px -14px;padding:20px 14px 40px;">
-    <div style="display:flex;gap:0;margin-bottom:18px;border:1px solid #2a2d3a;">
-      <div id="vTab1" onclick="switchVenus('lotto')" style="flex:1;padding:12px 6px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;background:#1e2028;color:#e8e6f0;border-right:1px solid #2a2d3a;">🎱 로또 비너스</div>
-      <div id="vTab2" onclick="switchVenus('annuity')" style="flex:1;padding:12px 6px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;background:#161820;color:#8884a0;">💛 연금복권 비너스</div>
-    </div>
-
-    <!-- 로또 비너스 -->
-    <div id="vView-lotto">
-      <div style="display:flex;gap:7px;margin-bottom:12px;">
-        <div id="vm1" onclick="vSelectMachine(1)" style="flex:1;padding:11px 6px;text-align:center;cursor:pointer;border:1px solid #20b8c4;background:#1e2028;font-size:10px;font-weight:700;color:#e8e6f0;">
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;color:#20b8c4;margin-bottom:3px;">1호기</div>이월수·구간몰림·연번
-        </div>
-        <div id="vm2" onclick="vSelectMachine(2)" style="flex:1;padding:11px 6px;text-align:center;cursor:pointer;border:1px solid #2a2d3a;background:#161820;font-size:10px;font-weight:700;color:#8884a0;">
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;color:#e06030;margin-bottom:3px;">2호기</div>꼴통·대각이웃수·1궁9궁
-        </div>
-        <div id="vm3" onclick="vSelectMachine(3)" style="flex:1;padding:11px 6px;text-align:center;cursor:pointer;border:1px solid #2a2d3a;background:#161820;font-size:10px;font-weight:700;color:#8884a0;">
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;color:#2a8f52;margin-bottom:3px;">3호기</div>연번·3연번·구간몰림
-        </div>
-      </div>
-      <div id="vTrait" style="padding:9px 12px;background:#161820;border:1px solid #2a2d3a;margin-bottom:14px;font-size:11px;color:#8884a0;line-height:1.7;"></div>
-
-      <div style="display:grid;grid-template-columns:1fr 280px;gap:12px;">
-        <div style="background:#161820;border:1px solid #2a2d3a;padding:14px;display:flex;flex-direction:column;align-items:center;">
-          <div style="font-size:9px;letter-spacing:2px;color:#5a5870;margin-bottom:10px;font-weight:700;">VENUS AIR-MIX DRAWING SYSTEM</div>
-          <canvas id="vLottoCanvas" width="280" height="480"></canvas>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:9px;">
-          <div style="background:#161820;border:1px solid #2a2d3a;padding:13px;">
-            <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
-              <div id="vLdot" style="width:7px;height:7px;border-radius:50%;background:#5a5870;flex-shrink:0;"></div>
-              <span id="vLstat" style="font-size:11px;color:#8884a0;">대기 중</span>
-              <span id="vLmachine" style="margin-left:auto;font-size:10px;color:#5a5870;font-family:'IBM Plex Mono',monospace;">1호기</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-              <span id="vLlabel" style="font-weight:700;color:#e8e6f0;">대기 중</span>
-              <span id="vLsec" style="font-family:'IBM Plex Mono',monospace;color:#8884a0;"></span>
-            </div>
-            <div style="height:2px;background:#2a2d3a;margin-bottom:5px;"><div id="vLbar" style="height:2px;background:#d63030;width:0%;transition:width 0.1s;"></div></div>
-            <div id="vLstatus" style="font-size:11px;color:#8884a0;margin-bottom:10px;min-height:16px;"></div>
-            <div id="vLballs" style="display:flex;gap:4px;flex-wrap:wrap;min-height:42px;align-items:center;margin-bottom:10px;"></div>
-            <div style="display:flex;gap:6px;">
-              <button id="vLstartBtn" onclick="vLStartDraw()" style="padding:9px 14px;background:#d63030;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans KR',sans-serif;">▶ 추첨</button>
-              <button onclick="vLReset()" style="padding:9px 12px;background:#1e2028;color:#e8e6f0;border:1px solid #2a2d3a;font-size:11px;cursor:pointer;font-family:'IBM Plex Sans KR',sans-serif;">초기화</button>
-            </div>
-          </div>
-          <div style="background:#161820;border:1px solid #2a2d3a;padding:12px;font-size:10px;color:#8884a0;line-height:2.1;">
-            버튼 → <strong style="color:#e8e6f0;">7초</strong> → 가동<br>
-            가동 → <strong style="color:#e8e6f0;">6초</strong> → 첫 공<br>
-            공 간격 <strong style="color:#e8e6f0;">6초</strong> · 총 <strong style="color:#20b8c4;">~49초</strong>
-          </div>
-          <div style="background:#161820;border:1px solid #2a2d3a;padding:12px;">
-            <div style="font-size:9px;letter-spacing:2px;color:#5a5870;margin-bottom:8px;font-weight:700;">VENUS SPEC</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;">
-              <div style="background:#1e2028;padding:5px 7px;"><span style="color:#5a5870;display:block;">제조</span><span style="font-family:'IBM Plex Mono',monospace;color:#20b8c4;font-size:10px;">EDITEC 프랑스</span></div>
-              <div style="background:#1e2028;padding:5px 7px;"><span style="color:#5a5870;display:block;">바람</span><span style="font-family:'IBM Plex Mono',monospace;color:#20b8c4;font-size:10px;">73~80m/s</span></div>
-              <div style="background:#1e2028;padding:5px 7px;"><span style="color:#5a5870;display:block;">챔버</span><span style="font-family:'IBM Plex Mono',monospace;color:#20b8c4;font-size:10px;">구형 Ø50cm</span></div>
-              <div style="background:#1e2028;padding:5px 7px;"><span style="color:#5a5870;display:block;">공</span><span style="font-family:'IBM Plex Mono',monospace;color:#20b8c4;font-size:10px;">Ø45mm · 4g</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 연금복권 비너스 -->
-    <div id="vView-annuity" style="display:none;">
-      <div style="font-size:11px;color:#8884a0;margin-bottom:14px;line-height:1.8;">7개 비너스 기계 동시 가동 · <strong style="color:#e8e6f0;">일→십→백→천→만→십만→조</strong> 순서로 확정</div>
-      <div id="vAMachines" style="display:flex;gap:5px;justify-content:center;overflow-x:auto;margin-bottom:14px;padding-bottom:4px;"></div>
-      <div id="vAResult" style="display:flex;gap:7px;align-items:flex-start;justify-content:center;flex-wrap:wrap;margin-bottom:14px;"></div>
-      <div style="background:#161820;border:1px solid #2a2d3a;padding:13px;">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-          <span id="vAlabel" style="font-weight:700;color:#e8e6f0;">대기 중</span>
-          <span id="vAsec" style="font-family:'IBM Plex Mono',monospace;color:#8884a0;"></span>
-        </div>
-        <div style="height:2px;background:#2a2d3a;margin-bottom:5px;"><div id="vAbar" style="height:2px;background:#c8920a;width:0%;transition:width 0.1s;"></div></div>
-        <div id="vAstatus" style="font-size:11px;color:#8884a0;margin-bottom:10px;min-height:16px;"></div>
-        <div style="display:flex;gap:6px;margin-bottom:10px;">
-          <button id="vAstartBtn" onclick="vAStartDraw()" style="padding:9px 14px;background:#c8920a;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans KR',sans-serif;">▶ 추첨</button>
-          <button onclick="vAReset()" style="padding:9px 12px;background:#1e2028;color:#e8e6f0;border:1px solid #2a2d3a;font-size:11px;cursor:pointer;font-family:'IBM Plex Sans KR',sans-serif;">초기화</button>
-        </div>
-        <div style="font-size:10px;color:#8884a0;line-height:2;">
-          버튼→<strong style="color:#e8e6f0;">6초</strong>→가동→<strong style="color:#e8e6f0;">5초</strong>→첫 번호→이후 <strong style="color:#e8e6f0;">7초</strong> 간격 · 총 <strong style="color:#c8920a;">~53초</strong>
-        </div>
-      </div>
-    </div>
-  </div><!-- view-venus -->
-
-</div><!-- wrap -->
-</div><!-- mainApp -->
-
-<!-- ===== 수동 업데이트 모달 ===== -->
-<div id="updateModal">
-  <div class="modal-box">
-    <div class="modal-title">📥 수동 업데이트</div>
-    <div class="modal-sub">
-      매주 추첨 후 새 회차 번호를 직접 입력하세요.<br>
-      로또는 토요일 밤, 연금복권은 목요일 저녁 추첨.
-    </div>
-
-    <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">▸ 로또 6/45 추가</div>
-    <div class="form-row"><span class="form-label">회차</span><input class="form-input" id="uLottoRound" type="number" placeholder="1216"></div>
-    <div class="form-row"><span class="form-label">날짜</span><input class="form-input" id="uLottoDate" type="text" placeholder="2026-03-21"></div>
-    <div class="form-row"><span class="form-label">당첨번호</span><input class="form-input" id="uLottoNums" type="text" placeholder="1,7,15,22,33,44"></div>
-    <div class="form-row"><span class="form-label">보너스</span><input class="form-input" id="uLottoBonus" type="number" placeholder="39"></div>
-    <div class="btn-row" style="margin-bottom:18px;">
-      <button class="btn btn-fill btn-sm" onclick="addLottoData()">로또 추가</button>
-    </div>
-
-    <div style="height:1px;background:var(--border);margin-bottom:18px;"></div>
-
-    <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);margin-bottom:10px;">▸ 연금복권 720+ 추가</div>
-    <div class="form-row"><span class="form-label">회차</span><input class="form-input" id="uAnRound" type="number" placeholder="307"></div>
-    <div class="form-row"><span class="form-label">날짜</span><input class="form-input" id="uAnDate" type="text" placeholder="2026-03-19"></div>
-    <div class="form-row">
-      <span class="form-label">조</span>
-      <select class="form-select" id="uAnJo"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
-    </div>
-    <div class="form-row"><span class="form-label">1등 번호</span><input class="form-input" id="uAnWin" type="text" placeholder="123456 (6자리)"></div>
-    <div class="form-row"><span class="form-label">보너스</span><input class="form-input" id="uAnBonus" type="text" placeholder="654321 (6자리)"></div>
-    <div class="btn-row" style="margin-bottom:14px;">
-      <button class="btn btn-gold btn-sm" onclick="addAnnuityData()">연금복권 추가</button>
-    </div>
-
-    <div class="update-result" id="updateResult"></div>
-    <div style="height:1px;background:var(--border);margin:16px 0;"></div>
-    <div class="btn-row">
-      <button class="btn btn-ghost btn-sm" onclick="closeUpdate()">닫기</button>
-    </div>
+    <div class="stat-grid" id="stat-summary"></div>
+    <div class="sl" id="stat-label">번호별 출현 빈도</div>
+    <div class="freq-grid" id="freq-grid"></div>
   </div>
 </div>
 
 <script>
-// ========================================
-// 비밀번호 — 여기서 변경하세요
-// ========================================
-const PASSWORD = '6063';
-// ========================================
+// ═══════════════════════════════════════════════
+// 로또 데이터
+// ═══════════════════════════════════════════════
+let LALL = [];
+const LOTTO_FALLBACK = [
+  {round:1215,nums:[13,15,19,21,44,45],bonus:39,date:'2026-03-14'},
+  {round:1214,nums:[10,15,19,27,30,33],bonus:14,date:'2026-03-07'},
+  {round:1213,nums:[5,11,25,27,36,38],bonus:2,date:'2026-02-28'},
+  {round:1212,nums:[5,8,25,31,41,44],bonus:45,date:'2026-02-21'},
+  {round:1211,nums:[23,26,27,35,38,40],bonus:10,date:'2026-02-14'},
+  {round:1210,nums:[1,7,9,17,27,38],bonus:31,date:'2026-02-07'},
+  {round:1209,nums:[2,17,20,35,37,39],bonus:24,date:'2026-01-31'},
+  {round:1208,nums:[6,27,30,36,38,42],bonus:25,date:'2026-01-24'},
+  {round:1207,nums:[10,22,24,27,38,45],bonus:11,date:'2026-01-17'},
+  {round:1206,nums:[1,3,17,26,27,42],bonus:23,date:'2026-01-10'},
+  {round:1205,nums:[1,4,16,23,31,41],bonus:2,date:'2026-01-03'},
+  {round:1204,nums:[8,16,28,30,31,44],bonus:27,date:'2025-12-27'},
+  {round:1203,nums:[3,6,18,29,35,39],bonus:24,date:'2025-12-20'},
+  {round:1202,nums:[5,12,21,33,37,40],bonus:7,date:'2025-12-13'},
+  {round:1201,nums:[7,9,24,27,35,36],bonus:37,date:'2025-12-06'},
+  {round:1200,nums:[4,11,23,29,32,44],bonus:16,date:'2025-11-29'},
+  {round:1199,nums:[6,14,21,28,34,40],bonus:3,date:'2025-11-22'},
+  {round:1198,nums:[2,9,19,31,37,42],bonus:22,date:'2025-11-15'},
+  {round:1197,nums:[10,18,25,30,38,43],bonus:5,date:'2025-11-08'},
+  {round:1196,nums:[1,12,20,27,33,41],bonus:17,date:'2025-11-01'},
+  {round:1195,nums:[3,8,14,22,35,40],bonus:11,date:'2025-10-25'},
+  {round:1194,nums:[7,11,16,24,31,38],bonus:2,date:'2025-10-18'},
+  {round:1193,nums:[4,9,18,26,37,43],bonus:28,date:'2025-10-11'},
+  {round:1192,nums:[2,6,15,23,32,41],bonus:10,date:'2025-10-04'},
+  {round:1191,nums:[1,12,19,28,36,44],bonus:7,date:'2025-09-27'},
+  {round:1190,nums:[5,13,21,29,34,42],bonus:18,date:'2025-09-20'},
+  {round:1189,nums:[3,10,17,25,33,45],bonus:22,date:'2025-09-13'},
+  {round:1188,nums:[8,14,20,27,35,40],bonus:4,date:'2025-09-06'},
+  {round:1187,nums:[2,11,18,24,32,43],bonus:36,date:'2025-08-30'},
+  {round:1186,nums:[6,9,16,23,31,39],bonus:45,date:'2025-08-23'},
+];
+LALL = LOTTO_FALLBACK;
 
-// ===== 잠금 =====
-let pinInput = '';
+// API 로드 시도
+(async()=>{
+  try{
+    const r=await fetch('https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=1215');
+    if(!r.ok)throw new Error();
+    const d=await r.json();
+    if(d.returnValue==='success'){
+      // 성공 시 더 많은 회차 로드 가능 (여기선 fallback 유지)
+    }
+  }catch(e){ /* fallback 유지 */ }
+  initUI();
+})();
 
-function keyPress(k){
-  if(pinInput.length >= 4) return;
-  pinInput += k;
-  updateDots();
-  if(pinInput.length === 4) setTimeout(checkPin, 120);
+// ═══════════════════════════════════════════════
+// 호기 바이어스 시스템
+// ═══════════════════════════════════════════════
+// 물리 추첨 결과에 호기별 바이어스 후처리
+// (실제 추첨은 물리엔진으로, 호기 특성은 결과 패턴으로 반영)
+
+function applyMachineBias(nums, bonus, machineNum){
+  // 물리 추첨 결과를 그대로 사용
+  // 호기 특성은 분석 리포트에서 패턴 설명으로 제공
+  return {nums, bonus};
 }
-function keyDel(){
-  pinInput = pinInput.slice(0,-1);
-  updateDots();
-  document.getElementById('lockMsg').textContent = '';
+
+// ═══════════════════════════════════════════════
+// 물리 엔진 (venus_physics.html 그대로)
+// ═══════════════════════════════════════════════
+const cv = document.getElementById('vc');
+const ctx = cv.getContext('2d');
+const W=700, H=720;
+const CX=340, CY=385, CR=200, BR=18;
+const AH1_ANG=Math.PI/2;
+const AH1X=CX+Math.cos(AH1_ANG)*(CR-BR*2-2);
+const AH1Y=CY+Math.sin(AH1_ANG)*(CR-BR*2-2);
+const AH_R=BR*2;
+const DRUM_T=22;
+const CCAP_ANG=-Math.PI/2;
+const RING_W=-Math.PI/4;
+const NCAPS=4;
+const ALIGN_TOL=0.06;
+const PX_M=800, FPS=60;
+const G=9.81*PX_M/(FPS*FPS);
+const K_DRAG=0.5*1.225*0.47*Math.PI*0.0225*0.0225;
+const DRAG_K=K_DRAG/0.004*FPS*FPS/PX_M;
+const AIR_SIGMA=CR*0.75;
+const E_WALL=0.98;
+const HX_POS=CX-CR-52, H_GAP2=54, H_TOP2=80;
+
+let balls=[], ringAng=0;
+let ringCaps=[{n:null,closed:false},{n:null,closed:false},{n:null,closed:false},{n:null,closed:false}];
+let confirmed=[], nOut=0;
+let phys_phase='idle', airOn=false, ringOn=false;
+let timerH=null, lastTS=0, animId=null;
+let airStr=0, capCool=0, ringPause=0, airDip=1;
+let tubeBalls=[];
+
+function bc(n){return n<=10?'#e6a817':n<=20?'#3a82d6':n<=30?'#d63030':n<=40?'#64686e':'#2a8f52';}
+function li(h,a){let r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgb('+Math.min(255,r+a)+','+Math.min(255,g+a)+','+Math.min(255,b+a)+')';}
+function da(h,a){let r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgb('+Math.max(0,r-a)+','+Math.max(0,g-a)+','+Math.max(0,b-a)+')';}
+function normA(a){return((a%(Math.PI*2))+Math.PI*2)%(Math.PI*2);}
+function aDiff(a,b){var d=Math.abs(normA(a)-normA(b));return d>Math.PI?Math.PI*2-d:d;}
+
+function spawnBalls(){
+  balls=[];
+  const rings=[1,8,12,14,10]; let n=1,ri=0;
+  rings.forEach(count=>{
+    const r=ri*(CR-BR*3.5)/4;
+    for(let k=0;k<count&&n<=45;k++){
+      const a=k/Math.max(count,1)*Math.PI*2+ri*0.5;
+      balls.push({n:n++,color:bc(n-1),state:'free',
+        x:CX+Math.cos(a)*r+(Math.random()-.5)*3,
+        y:CY+Math.sin(a)*r+(Math.random()-.5)*3,
+        vx:(Math.random()-.5)*0.5,vy:(Math.random()-.5)*0.5,trail:[]});
+    }
+    ri++;
+  });
 }
-function updateDots(){
+
+function physStep(dt){
+  if(airOn&&airStr<1) airStr=Math.min(1,airStr+dt/900);
+  if(!airOn) airStr=Math.max(0,airStr-dt/300);
+  if(airDip<1) airDip=Math.min(1,airDip+dt/800);
+  if(ringPause>0) ringPause-=dt;
+  const dtF=dt/16.67;
+  const ea=airStr*airDip;
+  balls.forEach(b=>{
+    if(b.state!=='free')return;
+    b.trail.push({x:b.x,y:b.y}); if(b.trail.length>6)b.trail.shift();
+    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)+0.001;
+    b.vy+=G*dtF;
+    const drag=DRAG_K*spd*spd*dtF*(airOn?(1+airStr*2):1);
+    const dragAcc=Math.min(drag,spd*0.4);
+    b.vx-=(b.vx/spd)*dragAcc; b.vy-=(b.vy/spd)*dragAcc;
+    if(airStr>0){
+      const s=ea;
+      const ahDx=b.x-AH1X,ahDy=b.y-AH1Y,ahD=Math.sqrt(ahDx*ahDx+ahDy*ahDy)+0.1;
+      const ahWt=Math.exp(-(ahDx*ahDx+ahDy*ahDy)/(2*AIR_SIGMA*AIR_SIGMA));
+      b.vy-=G*1.6*s*ahWt*dtF; b.vx+=(ahDx/ahD)*G*1.2*s*ahWt*dtF;
+      b.vx+=(Math.random()*2-1)*G*8.0*s*dtF; b.vy+=(Math.random()*2-1)*G*8.0*s*dtF;
+    }
+    const sn=Math.sqrt(b.vx*b.vx+b.vy*b.vy); if(sn>26){b.vx=b.vx/sn*26;b.vy=b.vy/sn*26;}
+    for(let ss=0;ss<2;ss++){
+      b.x+=b.vx*dtF/2; b.y+=b.vy*dtF/2;
+      const wx=b.x-CX,wy=b.y-CY,wd=Math.sqrt(wx*wx+wy*wy),mR=CR-BR;
+      if(wd>mR){
+        const nx=wx/wd,ny=wy/wd;
+        b.x=CX+nx*mR*0.9995; b.y=CY+ny*mR*0.9995;
+        const vn=b.vx*nx+b.vy*ny;
+        if(vn>0){b.vx-=(1+E_WALL)*vn*nx;b.vy-=(1+E_WALL)*vn*ny;
+          if(airStr>0){b.vx+=(Math.random()-.5)*1.2*airStr;b.vy+=(Math.random()-.5)*1.2*airStr;}}
+      }
+    }
+  });
+  for(let i=0;i<balls.length;i++){
+    const a=balls[i];if(a.state!=='free')continue;
+    for(let j=i+1;j<balls.length;j++){
+      const b=balls[j];if(b.state!=='free')continue;
+      const dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy,minD=BR*2+0.5;
+      if(d2>=minD*minD)continue;
+      const d=Math.sqrt(d2)+0.001,nx=dx/d,ny=dy/d,ov=(minD-d)*0.5;
+      a.x+=nx*ov;a.y+=ny*ov;b.x-=nx*ov;b.y-=ny*ov;
+      const v1n=a.vx*nx+a.vy*ny,v2n=b.vx*nx+b.vy*ny;
+      if(v1n-v2n>0){const dv=v1n-v2n;a.vx-=dv*nx;a.vy-=dv*ny;b.vx+=dv*nx;b.vy+=dv*ny;}
+    }
+  }
+}
+
+function ringStep(dt){
+  if(!ringOn||ringPause>0)return;
+  ringAng+=RING_W*(dt/1000);
+  if(capCool>0){capCool-=dt;}
+  for(let ci=0;ci<NCAPS;ci++){
+    const capAng=ringAng+ci*(Math.PI/2);
+    const drumIn=CR+2,drumOut=CR+DRUM_T+6,drumMid=(drumIn+drumOut)/2;
+    const capX=CX+Math.cos(capAng)*drumMid,capY=CY+Math.sin(capAng)*drumMid;
+    const holeX=CX+Math.cos(capAng)*(CR-2),holeY=CY+Math.sin(capAng)*(CR-2);
+    const atCap=aDiff(capAng,CCAP_ANG)<ALIGN_TOL;
+    if(ringCaps[ci].n!==null){
+      const ball=balls.find(b=>b.n===ringCaps[ci].n&&b.state==='captured');
+      if(ball){ball.x=holeX;ball.y=holeY;}
+      if(atCap&&nOut<7){doRelease(ci);return;}
+      continue;
+    }
+    if(ringCaps[ci].closed){if(!atCap)ringCaps[ci].closed=false;continue;}
+    if(!atCap)continue; if(capCool>0)continue;
+    balls.forEach(b=>{
+      if(b.state!=='free')return;
+      const dx=b.x-holeX,dy=b.y-holeY,d=Math.sqrt(dx*dx+dy*dy)+.1;
+      if(d<CR*1.8){const suck=0.5*(1-d/(CR*1.8))*airStr;b.vx-=dx/d*suck;b.vy-=dy/d*suck;}
+    });
+    let closest=null,minD=BR*5;
+    balls.forEach(b=>{
+      if(b.state!=='free')return;
+      const dx=b.x-holeX,dy=b.y-holeY,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<minD){minD=d;closest=b;}
+    });
+    if(closest){
+      closest.state='captured';closest.vx=0;closest.vy=0;closest.trail=[];
+      ringCaps[ci].n=closest.n;ringCaps[ci].closed=false;capCool=500;
+      const el=document.getElementById('rc'+ci);if(el)el.className='cap full';
+      const rv=document.getElementById('rv'+ci);if(rv)rv.textContent=closest.n<10?'0'+closest.n:closest.n;
+      setStat(closest.n+'번 포착!');
+    }
+    break;
+  }
+}
+
+function doRelease(ci){
+  const n=ringCaps[ci].n;
+  ringCaps[ci].n=null;ringCaps[ci].closed=true;
+  ringPause=500;airDip=0.3;
+  const ball=balls.find(b=>b.n===n);if(ball)ball.state='tubed';
+  tubeBalls.push({n,color:bc(n),x:HX_POS,y:H_TOP2+22+nOut*H_GAP2,settled:true});
+  confirmed.push(n);nOut++;
+  const el=document.getElementById('rc'+ci);if(el)el.className='cap';
+  const rv=document.getElementById('rv'+ci);if(rv)rv.textContent='—';
+  updateHolderGame();
+  setStat(n+'번 배출! ('+nOut+'/7)');
+  if(nOut>=7) onGameDone();
+}
+
+// ═══════════════════════════════════════════════
+// 게임 관리
+// ═══════════════════════════════════════════════
+let curMachine=1, curGameCount=3;
+let allResults=[];     // [{nums,bonus,machine}]
+let curGameIdx=0;
+let drawPhase='idle';
+let ringBarT=null;
+
+function selectMachine(n){
+  curMachine=n;
+  document.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',+b.dataset.m===n));
+  updateGameDesc();
+}
+function selectGames(n){
+  curGameCount=n;
+  document.querySelectorAll('.gbtn').forEach(b=>b.classList.toggle('on',+b.dataset.g===n));
+  updateGameDesc();
+  renderHolders();
+}
+function updateGameDesc(){
+  const el=document.getElementById('game-desc');
+  if(!el) return;
+  if(curGameCount===1){
+    el.textContent=`${curMachine}호기 × 1게임`;
+  } else {
+    const perMachine=curGameCount/3;
+    el.textContent=`1·2·3호기 각 ${perMachine}게임씩 (총 ${curGameCount}게임)`;
+  }
+}
+
+function renderHolders(){
+  const el=document.getElementById('holders');
+  if(!el) return;
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const mNames={1:'1호기',2:'2호기',3:'3호기'};
+
+  // 게임 큐가 없으면 임시 큐로 표시
+  const queue=gameQueue.length>0?gameQueue:buildGameQueue();
+
+  let html='';
+  for(let g=0;g<queue.length;g++){
+    const {machine,slotIdx}=queue[g];
+    const res=allResults[slotIdx];
+    const balls=res?res.nums:[];
+    const bonus=res?res.bonus:null;
+    const mCol=mColors[machine];
+    let bhtml='';
+    for(let i=0;i<6;i++){
+      const n=balls[i];
+      if(n){bhtml+=`<div class="hball filled" style="background:${bc(n)}">${n<10?'0'+n:n}</div>`;}
+      else{bhtml+=`<div class="hball" style="border-color:${mCol}33">?</div>`;}
+    }
+    if(bonus){bhtml+=`<div class="hball bonus filled" style="background:${bc(bonus)};border:1px dashed rgba(255,255,255,.5)">${bonus<10?'0'+bonus:bonus}</div>`;}
+    else{bhtml+=`<div class="hball bonus" style="border-color:${mCol}33">+</div>`;}
+    html+=`<div class="holder-game" style="border-color:${mCol}33">
+      <div class="hg-label" style="color:${mCol}">${mNames[machine]} ${g+1}게임</div>
+      <div class="hg-balls">${bhtml}</div>
+    </div>`;
+  }
+  el.innerHTML=html;
+}
+
+function updateHolderGame(){
+  // 현재 게임 홀더 업데이트
+  renderHolders();
+}
+
+function onGameDone(){
+  const nums=[...confirmed.slice(0,6)].sort((a,b)=>a-b);
+  const bonus=confirmed[6]||0;
+  const slot=gameQueue[curGameIdx].slotIdx;
+  allResults[slot]={nums,bonus,machine:curMachine};
+
+  if(curGameIdx+1 < gameQueue.length){
+    curGameIdx++;
+    // 다음 게임 호기로 전환
+    curMachine=gameQueue[curGameIdx].machine;
+    const prog=document.getElementById('game-prog');
+    if(prog) prog.textContent=`${curGameIdx+1}/${curGameCount}`;
+    const mNames={1:'1호기',2:'2호기',3:'3호기'};
+    setStat(`${curGameIdx}게임 완료 → ${mNames[curMachine]} ${curGameIdx+1}게임 시작...`);
+    renderHolders();
+    timerH=setTimeout(()=>startOneGame(), 2500);
+  } else {
+    finishAll();
+  }
+  renderHolders();
+}
+
+function finishAll(){
+  drawPhase='idle';
+  airOn=false;ringOn=false;
+  if(ringBarT)clearInterval(ringBarT);
+  if(elapsedTimer){clearInterval(elapsedTimer);elapsedTimer=null;}
+  document.getElementById('dot').style.background='var(--green)';
+  setPHL('추첨 완료!');
+  setStat(`전체 ${curGameCount}게임 완료 ✓`);
+  document.getElementById('sb').disabled=false;
+  document.getElementById('sb').textContent='▶ 추첨 시작';
+  document.getElementById('game-prog').textContent='';
+  // 결과 저장 → 목록에 추가
+  saveResults();
+  // 리포트 생성
+  generateReport();
+}
+
+// ═══════════════════════════════════════════════
+// 저장 번호 목록
+// ═══════════════════════════════════════════════
+let savedList = [];  // [{nums,bonus,machine,gameLabel,time}]
+
+function saveResults(){
+  const mNames={1:'1호기',2:'2호기',3:'3호기'};
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const queue=gameQueue.length>0?gameQueue:buildGameQueue();
+  const now=new Date();
+  const timeStr=gameStartTime?fmtStartTime(gameStartTime):'--:--:--';
+  const elapsedStr=gameStartTime?fmtElapsed(Date.now()-gameStartTime.getTime()):'';
+
+  queue.forEach(({machine,slotIdx},gi)=>{
+    const res=allResults[slotIdx];
+    if(!res) return;
+    if(savedList.length>=20) savedList.shift(); // 20개 초과시 가장 오래된 것 제거
+    savedList.push({
+      nums:res.nums,
+      bonus:res.bonus,
+      machine,
+      gameLabel:`${mNames[machine]} ${gi+1}게임`,
+      time:timeStr, elapsed:elapsedStr,
+      id:Date.now()+gi,
+      selected:false
+    });
+  });
+  renderSaved();
+}
+
+function renderSaved(){
+  const list=document.getElementById('saved-list');
+  const cnt=document.getElementById('saved-count');
+  if(!list) return;
+  cnt.textContent=`${savedList.length} / 20`;
+
+  if(!savedList.length){
+    list.innerHTML='<div class="saved-empty">추첨 후 번호가 여기에 자동으로 저장됩니다 (최대 20조합)</div>';
+    return;
+  }
+
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const mColorsBorder={1:'rgba(26,184,196,.5)',2:'rgba(224,96,48,.5)',3:'rgba(42,159,82,.5)'};
+
+  list.innerHTML=savedList.map((s,i)=>{
+    const bhtml=s.nums.map(n=>`<div class="svball" style="background:${bc(n)}">${n<10?'0'+n:n}</div>`).join('');
+    const bonusHtml=`<span class="sv-plus">+</span><div class="svball bns" style="background:${bc(s.bonus)}">${s.bonus<10?'0'+s.bonus:s.bonus}</div>`;
+    const tags=quickTags(s.nums);
+    const tagHtml=tags.map(t=>`<span class="sv-tag" style="color:${t.color};border-color:${t.color}44;background:${t.color}11">${t.text}</span>`).join('');
+    const borderCol=s.selected?mColorsBorder[s.machine]:'var(--border)';
+    const bgCol=s.selected?`rgba(26,184,196,.04)`:'var(--bg2)';
+    return `<div class="saved-row${s.selected?' selected':''}" style="border-left-color:${mColorsBorder[s.machine]};background:${bgCol};" id="srow-${s.id}">
+      <input type="checkbox" class="sv-check" ${s.selected?'checked':''} onchange="toggleSelect(${s.id},this.checked)">
+      <div class="sv-idx">${i+1}</div>
+      <div class="sv-machine" style="color:${mColors[s.machine]}">${s.gameLabel}</div>
+      <div class="sv-balls">${bhtml}${bonusHtml}</div>
+      <div class="sv-tags">${tagHtml}</div>
+      <div class="sv-meta">${s.time}${s.elapsed?" · "+s.elapsed:""}</div>
+      <button class="sv-del" onclick="deleteOne(${s.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function quickTags(nums){
+  const tags=[];
+  const sorted=[...nums].sort((a,b)=>a-b);
+  // 연번
+  let max=1,cur=1;
+  for(let i=1;i<sorted.length;i++){if(sorted[i]===sorted[i-1]+1)cur++;else cur=1;if(cur>max)max=cur;}
+  if(max>=3) tags.push({text:'3연번',color:'#d63030'});
+  else if(max>=2) tags.push({text:'연번',color:'#c8920a'});
+  // 구간
+  const z=[0,0,0]; sorted.forEach(n=>z[n<=15?0:n<=30?1:2]++);
+  if(Math.max(...z)>=4) tags.push({text:'구간몰림',color:'#1ab8c4'});
+  // 합계
+  const sum=sorted.reduce((a,b)=>a+b,0);
+  if(sum<100) tags.push({text:'합'+sum+'↓',color:'#8b5cf6'});
+  else if(sum>165) tags.push({text:'합'+sum+'↑',color:'#ec4899'});
+  else tags.push({text:'합'+sum,color:'#7a7890'});
+  // 이월
+  if(LALL.length>0){const last=LALL[0].nums;const c=sorted.filter(n=>last.includes(n));if(c.length>0) tags.push({text:'이월'+c.length,color:'#c8920a'});}
+  return tags;
+}
+
+function toggleSelect(id, checked){
+  const item=savedList.find(s=>s.id===id);
+  if(item) item.selected=checked;
+  renderSaved();
+}
+function selectAllSaved(){
+  const allChecked=savedList.every(s=>s.selected);
+  savedList.forEach(s=>s.selected=!allChecked);
+  renderSaved();
+}
+function deleteSelected(){
+  savedList=savedList.filter(s=>!s.selected);
+  renderSaved();
+}
+function deleteOne(id){
+  savedList=savedList.filter(s=>s.id!==id);
+  renderSaved();
+}
+function deleteAll(){
+  if(!savedList.length) return;
+  if(confirm(`저장된 번호 ${savedList.length}개를 모두 삭제할까요?`)){
+    savedList=[];
+    renderSaved();
+  }
+}
+
+// 게임 큐 생성
+function buildGameQueue(){
+  if(curGameCount===1){
+    // 1게임: 선택한 호기 1게임
+    return [{machine:curMachine,slotIdx:0}];
+  } else {
+    // 3/6/9게임: 1·2·3호기 각 perMachine게임씩
+    const perMachine=curGameCount/3;
+    const queue=[];
+    for(let m=1;m<=3;m++){
+      for(let g=0;g<perMachine;g++){
+        queue.push({machine:m, slotIdx:(m-1)*perMachine+g});
+      }
+    }
+    return queue;
+  }
+}
+
+let gameQueue=[];  // [{machine, slotIdx}]
+let gameStartTime=null;   // 게임 시작 시각 (Date)
+let gameElapsed=0;        // 경과 ms
+let elapsedTimer=null;    // 경과 시간 인터벌
+
+function startAll(){
+  if(drawPhase!=='idle')return;
+  drawPhase='running';
+  allResults=new Array(curGameCount).fill(null);
+  curGameIdx=0;
+  gameQueue=buildGameQueue();
+  curMachine=gameQueue[0].machine;  // 첫 게임 호기로 설정
+  document.getElementById('sb').disabled=true;
+  document.getElementById('sb').textContent='추첨 중...';
+  document.getElementById('dot').style.cssText='width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--cyan);box-shadow:0 0 5px var(--cyan);animation:pd 1.2s infinite;';
+  document.getElementById('game-prog').textContent=`1/${curGameCount}`;
+  renderHolders();
+  startOneGame();
+}
+
+function startOneGame(){
+  // 물리 상태 초기화
+  confirmed=[]; nOut=0; ringAng=0; capCool=0; ringPause=0; airStr=0; airDip=1;
+  ringCaps=[{n:null,closed:false},{n:null,closed:false},{n:null,closed:false},{n:null,closed:false}];
+  tubeBalls=[];
+  airOn=false; ringOn=false;
+  spawnBalls();
   for(let i=0;i<4;i++){
-    const d = document.getElementById('dot'+i);
-    d.classList.toggle('filled', i < pinInput.length);
+    const e=document.getElementById('rc'+i);if(e)e.className='cap';
+    const r=document.getElementById('rv'+i);if(r)r.textContent='—';
+  }
+  // ── 게임 타이머 시작 (매 게임마다 리셋) ──
+  if(elapsedTimer) clearInterval(elapsedTimer);
+  gameStartTime = new Date();
+  gameElapsed = 0;
+  elapsedTimer = setInterval(()=>{
+    gameElapsed = Date.now() - gameStartTime.getTime();
+    updateElapsedUI();
+  }, 100);
+  updateElapsedUI();
+  setPHL('대기 중'); setStat(`게임 ${curGameIdx+1} — 7초 대기...`);
+  runT(7000,'대기',()=>{
+    airOn=true;airStr=0;
+    setPHL('에어믹스'); setStat('공 혼합 중...');
+    runT(6000,'혼합',()=>{
+      ringOn=true;
+      document.getElementById('pfi').style.background='var(--red)';
+      setPHL('링 추첨'); setStat('링캡 회전 — 포착 중...');
+      startRingBar();
+    });
+  });
+}
+
+function startRingBar(){
+  if(ringBarT)clearInterval(ringBarT);
+  let t=0;
+  ringBarT=setInterval(()=>{
+    if(!ringOn||nOut>=7){clearInterval(ringBarT);return;}
+    t+=100;const p=5000;
+    document.getElementById('pfi').style.width=((t%p)/p*100)+'%';
+    document.getElementById('ptsec').textContent=((p-(t%p))/1000).toFixed(1)+'s';
+  },100);
+}
+
+function resetAll(){
+  if(timerH)clearTimeout(timerH);
+  if(ringBarT)clearInterval(ringBarT);
+  if(elapsedTimer){clearInterval(elapsedTimer);elapsedTimer=null;}
+  gameStartTime=null; gameElapsed=0;
+  drawPhase='idle';airOn=false;ringOn=false;airStr=0;
+  confirmed=[];nOut=0;ringAng=0;capCool=0;ringPause=0;airDip=1;
+  ringCaps=[{n:null,closed:false},{n:null,closed:false},{n:null,closed:false},{n:null,closed:false}];
+  tubeBalls=[];spawnBalls();allResults=[];curGameIdx=0;
+  document.getElementById('sb').disabled=false;document.getElementById('sb').textContent='▶ 추첨 시작';
+  document.getElementById('dot').style.cssText='width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--muted2);';
+  const ge=document.getElementById('game-elapsed'); if(ge) ge.textContent='';
+  document.getElementById('game-prog').textContent='';
+  setPHL('대기 중');setStat('');
+  document.getElementById('ptlab').textContent='-';document.getElementById('ptsec').textContent='';
+  document.getElementById('pfi').style.width='0%';document.getElementById('pfi').style.background='var(--cyan)';
+  for(let i=0;i<4;i++){const e=document.getElementById('rc'+i);if(e)e.className='cap';const r=document.getElementById('rv'+i);if(r)r.textContent='—';}
+  renderHolders();
+  document.getElementById('report-empty').style.display='block';
+  document.getElementById('report-content').style.display='none';
+}
+
+function runT(ms,lbl,cb){
+  let e=0;document.getElementById('ptlab').textContent=lbl;
+  const tick=()=>{e+=100;document.getElementById('pfi').style.width=Math.min(e/ms*100,100)+'%';document.getElementById('ptsec').textContent=Math.ceil((ms-e)/1000)+'s';if(e<ms)timerH=setTimeout(tick,100);else cb();};
+  timerH=setTimeout(tick,100);
+}
+function fmtElapsed(ms){
+  const s=Math.floor(ms/1000);
+  const m=Math.floor(s/60);
+  const sec=s%60;
+  const csec=Math.floor((ms%1000)/100);
+  if(m>0) return `${m}:${String(sec).padStart(2,'0')}.${csec}`;
+  return `${String(sec).padStart(2,'0')}.${csec}`;
+}
+function fmtStartTime(d){
+  const h=String(d.getHours()).padStart(2,'0');
+  const m=String(d.getMinutes()).padStart(2,'0');
+  const s=String(d.getSeconds()).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+function updateElapsedUI(){
+  const el=document.getElementById('game-elapsed');
+  if(!el||!gameStartTime) return;
+  el.textContent=`⏱ ${fmtStartTime(gameStartTime)} 시작 · 경과 ${fmtElapsed(gameElapsed)}`;
+}
+function setPHL(t){document.getElementById('phl').textContent=t;}
+function setStat(t){const e=document.getElementById('pst');if(e){e.textContent=t;e.className='pst on';}}
+
+// ═══════════════════════════════════════════════
+// 리포트 생성
+// ═══════════════════════════════════════════════
+function generateReport(){
+  const mNames={1:'1호기',2:'2호기',3:'3호기'};
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const mDescs={
+    1:'이월수 3~4주 연속 多, 동끝수 1~2개 동시출현, 구간몰림 심함, 연번·3연번 자주',
+    2:'꼴통기계. 대각이웃수 이월수, 1궁(1·10·19·28·37)·9궁(9·18·27·36·45) 강함',
+    3:'연번·3연번 자주, 구간몰림 있으나 멸구간 적어 번호 골고루 분포'
+  };
+
+  let html=`
+  <div class="report-header">
+    <div>
+      <div class="rh-machine" style="color:${mColors[curMachine]}">${mNames[curMachine]}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;">${mDescs[curMachine]}</div>
+    </div>
+    <div class="rh-date">${curGameCount}게임 · ${new Date().toLocaleDateString('ko-KR')}</div>
+  </div>`;
+
+  // 각 게임 카드
+  html+='<div class="report-games">';
+  allResults.forEach((res,gi)=>{
+    if(!res)return;
+    const tags=analyzeNumbers(res.nums,res.bonus,gi);
+    const bhtml=res.nums.map(n=>`<div class="rball" style="background:${bc(n)}">${n<10?'0'+n:n}</div>`).join('')
+      +`<div style="font-size:18px;color:var(--muted);margin:0 4px;">+</div>`
+      +`<div class="rball bonus-r" style="background:${bc(res.bonus)}">${res.bonus<10?'0'+res.bonus:res.bonus}</div>`;
+    const taghtml=tags.map(t=>`<span class="tag tag-${t.type}">${t.text}</span>`).join('');
+    html+=`
+    <div class="rg-card">
+      <div class="rg-title">${mNames[curMachine]} · ${gi+1}게임</div>
+      <div class="rg-balls">${bhtml}</div>
+      <div class="rg-tags">${taghtml}</div>
+      ${buildNumDetail(res.nums)}
+    </div>`;
+  });
+  html+='</div>';
+
+  // 전체 통합 분석
+  if(allResults.length>1){
+    html+=buildCombinedAnalysis();
+  }
+
+  // 과거 유사 번호 비교
+  html+=buildHistoryMatch();
+
+  document.getElementById('report-content').innerHTML=html;
+  document.getElementById('report-empty').style.display='none';
+  document.getElementById('report-content').style.display='block';
+}
+
+function analyzeNumbers(nums,bonus,gi){
+  const tags=[];
+  const sorted=[...nums].sort((a,b)=>a-b);
+
+  // 연번 체크
+  let consecCount=0, maxConsec=1, cur=1;
+  for(let i=1;i<sorted.length;i++){
+    if(sorted[i]===sorted[i-1]+1){cur++;maxConsec=Math.max(maxConsec,cur);}
+    else cur=1;
+  }
+  if(maxConsec>=3) tags.push({type:'red',text:'3연번'});
+  else if(maxConsec>=2) tags.push({type:'gold',text:'연번 포함'});
+
+  // 구간 분포
+  const z=[0,0,0];
+  sorted.forEach(n=>z[n<=15?0:n<=30?1:2]++);
+  const maxZ=Math.max(...z);
+  if(maxZ>=4) tags.push({type:'cyan',text:`구간몰림 (${['1-15','16-30','31-45'][z.indexOf(maxZ)]})`});
+  else if(z.includes(0)) tags.push({type:'muted',text:'멸구간 있음'});
+  else tags.push({type:'green',text:'균형 분포'});
+
+  // 홀짝
+  const odd=sorted.filter(n=>n%2===1).length;
+  if(odd>=5) tags.push({type:'muted',text:`홀${odd}짝${6-odd}`});
+  else if(odd<=1) tags.push({type:'muted',text:`홀${odd}짝${6-odd}`});
+  else tags.push({type:'muted',text:`홀${odd}짝${6-odd}`});
+
+  // 합계
+  const sum=sorted.reduce((a,b)=>a+b,0);
+  if(sum<100) tags.push({type:'cyan',text:`합계 ${sum} (저)`});
+  else if(sum>160) tags.push({type:'red',text:`합계 ${sum} (고)`});
+  else tags.push({type:'green',text:`합계 ${sum}`});
+
+  // 동끝수
+  const ends=sorted.map(n=>n%10);
+  const endSet=new Set(ends);
+  if(endSet.size<sorted.length-1) tags.push({type:'gold',text:'동끝수 포함'});
+
+  // 1궁/9궁 (2호기 특성)
+  const palace1=[1,10,19,28,37],palace9=[9,18,27,36,45];
+  const p1=sorted.filter(n=>palace1.includes(n)).length;
+  const p9=sorted.filter(n=>palace9.includes(n)).length;
+  if(p1>=2) tags.push({type:'cyan',text:`1궁 ${p1}개`});
+  if(p9>=2) tags.push({type:'cyan',text:`9궁 ${p9}개`});
+
+  // 이월수 (최근 회차와 비교)
+  if(LALL.length>0){
+    const last=LALL[0].nums;
+    const carry=sorted.filter(n=>last.includes(n));
+    if(carry.length>0) tags.push({type:'gold',text:`이월수 ${carry.join(',')} (${carry.length}개)`});
+  }
+
+  return tags;
+}
+
+function buildNumDetail(nums){
+  const sorted=[...nums].sort((a,b)=>a-b);
+  const zones=[[],[],[]];
+  sorted.forEach(n=>zones[n<=15?0:n<=30?1:2].push(n));
+  const zColors=['rgba(26,184,196,.8)','rgba(200,146,10,.8)','rgba(214,48,48,.8)'];
+  const zLabels=['1~15','16~30','31~45'];
+
+  let html=`<div style="display:flex;gap:4px;margin-top:8px;">`;
+  for(let i=0;i<3;i++){
+    const pct=zones[i].length/6*100;
+    html+=`<div style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:5px;border-radius:2px;text-align:center;">
+      <div style="font-size:8px;color:var(--muted);margin-bottom:3px;">${zLabels[i]}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:${zColors[i]}">${zones[i].length}개</div>
+      <div style="height:2px;background:var(--border);margin-top:4px;border-radius:1px;"><div style="height:2px;width:${pct}%;background:${zColors[i]};border-radius:1px;"></div></div>
+      <div style="font-size:8px;color:var(--muted2);margin-top:2px;">${zones[i].join(' ')}</div>
+    </div>`;
+  }
+  html+='</div>';
+  return html;
+}
+
+function buildCombinedAnalysis(){
+  const allNums=allResults.flatMap(r=>r?r.nums:[]);
+  const freq={};
+  for(let n=1;n<=45;n++) freq[n]=0;
+  allNums.forEach(n=>freq[n]++);
+  const sorted=Object.entries(freq).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  let html=`<div class="card"><div class="sl">전체 ${curGameCount}게임 통합 분석</div>
+  <div class="analysis-grid">
+    <div class="ag-item"><div class="ag-label">총 번호 수</div><div class="ag-val">${allNums.length}개</div><div class="ag-sub">중복 포함</div></div>
+    <div class="ag-item"><div class="ag-label">유니크 번호</div><div class="ag-val">${new Set(allNums).size}개</div><div class="ag-sub">45개 중</div></div>
+    <div class="ag-item"><div class="ag-label">최빈 번호</div><div class="ag-val">${sorted[0]?sorted[0][0]:'—'}</div><div class="ag-sub">${sorted[0]?sorted[0][1]+'회 출현':''}</div></div>
+    <div class="ag-item"><div class="ag-label">평균 합계</div><div class="ag-val">${Math.round(allResults.filter(r=>r).reduce((s,r)=>s+r.nums.reduce((a,b)=>a+b,0),0)/allResults.filter(r=>r).length)}</div><div class="ag-sub">정상범위 100~175</div></div>
+  </div>
+  <div class="sl">게임별 출현 번호 (중복 제외)</div>
+  <div style="display:flex;gap:3px;flex-wrap:wrap;">`;
+  [...new Set(allNums)].sort((a,b)=>a-b).forEach(n=>{
+    html+=`<span style="display:inline-flex;width:26px;height:26px;border-radius:50%;background:${bc(n)};align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:#fff;">${n<10?'0'+n:n}</span>`;
+  });
+  html+='</div></div>';
+  return html;
+}
+
+function buildHistoryMatch(){
+  if(!LALL.length||!allResults.length)return '';
+  // 각 게임과 과거 번호 비교
+  let html=`<div class="card"><div class="sl">과거 당첨번호 유사도 (최근 30회)</div>`;
+  const recent=LALL.slice(0,30);
+
+  allResults.forEach((res,gi)=>{
+    if(!res)return;
+    let bestMatch={cnt:0,round:0,date:'',nums:[]};
+    recent.forEach(h=>{
+      const matched=res.nums.filter(n=>h.nums.includes(n));
+      if(matched.length>bestMatch.cnt) bestMatch={cnt:matched.length,round:h.round,date:h.date,nums:h.nums,matched};
+    });
+    if(bestMatch.cnt>=3){
+      const bhtml=bestMatch.nums.map(n=>{
+        const hit=bestMatch.matched.includes(n);
+        return`<span class="sball" style="background:${bc(n)};${hit?'':' opacity:.4;'}">${n<10?'0'+n:n}</span>`;
+      }).join('');
+      html+=`<div class="match-row">
+        <div class="match-cnt">${gi+1}게임</div>
+        <div style="font-size:9px;color:var(--muted);width:50px;">${bestMatch.round}회</div>
+        <div style="font-size:9px;color:var(--cyan);margin-right:8px;font-family:'IBM Plex Mono',monospace;font-weight:700;">${bestMatch.cnt}개 일치</div>
+        <div style="display:flex;gap:2px;">${bhtml}</div>
+        <div style="font-size:9px;color:var(--muted);margin-left:auto;">${bestMatch.date}</div>
+      </div>`;
+    }
+  });
+  html+='</div>';
+  return html;
+}
+
+// ═══════════════════════════════════════════════
+// 렌더링
+// ═══════════════════════════════════════════════
+function drawBall(x,y,n,col,r,alpha){
+  alpha=alpha===undefined?1:alpha;
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);
+  ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=4;
+  const g=ctx.createRadialGradient(-r*.22,-r*.3,r*.08,0,0,r);
+  g.addColorStop(0,li(col,65));g.addColorStop(.4,li(col,18));
+  g.addColorStop(.82,col);g.addColorStop(1,da(col,32));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+  if(alpha>.4){
+    ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.arc(-r*.22,-r*.3,r*.35,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.92)';ctx.font='bold '+(r<12?7:r<16?8:9)+'px IBM Plex Mono';
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n<10?'0'+n:n,0,.5);
+  }
+  ctx.restore();
+}
+
+function render(ts){
+  const dt=Math.min(ts-lastTS,50);lastTS=ts;
+  physStep(dt);ringStep(dt);
+
+  ctx.clearRect(0,0,W,H);ctx.fillStyle='#090a0e';ctx.fillRect(0,0,W,H);
+
+  const HX=HX_POS;
+  // 결과 홀더 (7개 원형)
+  ctx.fillStyle='#3e3d58';ctx.font='bold 7px IBM Plex Mono';ctx.textAlign='center';
+  ctx.fillText('RESULT',HX,H_TOP2-6);
+  for(let i=0;i<7;i++){
+    const hy=H_TOP2+22+i*H_GAP2;
+    const p=tubeBalls[i];
+    ctx.fillStyle=p?'rgba(20,24,38,.95)':'rgba(14,16,26,.85)';
+    ctx.strokeStyle=p?'rgba(26,184,196,.6)':'rgba(50,58,88,.5)';
+    ctx.lineWidth=p?2:1.5;
+    ctx.beginPath();ctx.arc(HX,hy,22,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=p?'rgba(26,184,196,.25)':'rgba(40,48,72,.4)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(HX,hy,17,0,Math.PI*2);ctx.stroke();
+    if(p) drawBall(HX,hy,p.n,p.color,18);
+    else{ctx.fillStyle='rgba(60,65,95,.5)';ctx.font='bold 8px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i<6?(i+1):'★',HX,hy);}
+  }
+  // 연결관
+  const connY=CY+Math.sin(CCAP_ANG)*(CR-20);
+  ctx.strokeStyle='rgba(28,32,50,.88)';ctx.lineWidth=14;ctx.beginPath();ctx.moveTo(HX,connY);ctx.lineTo(CX-CR+20,connY);ctx.stroke();
+  ctx.strokeStyle='rgba(14,16,24,.92)';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(HX,connY);ctx.lineTo(CX-CR+20,connY);ctx.stroke();
+
+  // 챔버 배경
+  const cbg=ctx.createRadialGradient(CX-18,CY-25,10,CX,CY,CR);
+  cbg.addColorStop(0,'#1c2030');cbg.addColorStop(.5,'#12141e');cbg.addColorStop(1,'#0a0b10');
+  ctx.fillStyle=cbg;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.fill();
+
+  // 에어
+  if(airStr>0){
+    const s=airStr*airDip,t=ts/1000;
+    for(let si=0;si<6;si++){
+      const ba=-t*2.2+si*(Math.PI*2/6);
+      ctx.strokeStyle=`rgba(26,184,196,${s*0.05})`;ctx.lineWidth=1.2;ctx.beginPath();let first=true;
+      for(let step=0;step<=20;step++){
+        const a=ba+step*.22,r2=(CR*.15)+step*(CR*.038);if(r2>CR*.92)break;
+        const px=CX+Math.cos(a)*r2,py=CY+Math.sin(a)*r2;
+        if(first){ctx.moveTo(px,py);first=false;}else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+    [[AH1X,AH1Y]].forEach(([ax,ay])=>{
+      for(let i=0;i<8;i++){
+        const age=((ts/3.5+i*55)%(CR*1.3))/CR;
+        const sp=age*(Math.PI*3+i),sr=age*CR*.35;
+        const px=ax+Math.cos(sp)*sr+(CX-ax)*age*.3,py=ay-age*CR;
+        if(py<CY-CR||py>CY+CR)continue;
+        if((px-CX)**2+(py-CY)**2>CR*CR)continue;
+        ctx.fillStyle=`rgba(26,184,196,${Math.max(0,s*.24*(1-age*.7)).toFixed(3)})`;
+        ctx.beginPath();ctx.arc(px,py,2,0,Math.PI*2);ctx.fill();
+      }
+    });
+    const gw=ctx.createRadialGradient(CX,CY+CR*.5,20,CX,CY,CR);
+    gw.addColorStop(0,`rgba(26,184,196,${s*.1})`);gw.addColorStop(.5,`rgba(26,184,196,${s*.03})`);gw.addColorStop(1,`rgba(26,184,196,${s*.06})`);
+    ctx.fillStyle=gw;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.fill();
+  }
+
+  // 공
+  ctx.save();ctx.beginPath();ctx.arc(CX,CY,CR-2,0,Math.PI*2);ctx.clip();
+  balls.forEach(b=>{
+    if(b.state!=='free')return;
+    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    const ta=Math.min(0.35,spd/20*0.35)*airStr;
+    if(ta>0.04&&b.trail.length>1){
+      for(let t2=0;t2<b.trail.length-1;t2++)
+        drawBall(b.trail[t2].x,b.trail[t2].y,b.n,b.color,BR*.82,(t2+1)/b.trail.length*ta);
+    }
+    drawBall(b.x,b.y,b.n,b.color,BR,1);
+  });
+  ctx.restore();
+
+  // 챔버 테두리
+  ctx.strokeStyle='rgba(13,15,23,.98)';ctx.lineWidth=9;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(36,40,64,.5)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(CX-16,CY-22,CR*.79,Math.PI*1.05,Math.PI*1.63);ctx.stroke();
+
+  // 외부 드럼링
+  const drumIn=CR+4,drumOut=CR+DRUM_T+10,drumMid=(drumIn+drumOut)/2;
+  ctx.fillStyle='rgba(200,210,240,.04)';
+  ctx.beginPath();ctx.arc(CX,CY,drumOut,0,Math.PI*2,false);ctx.arc(CX,CY,drumIn,0,Math.PI*2,true);ctx.fill('evenodd');
+  ctx.strokeStyle='rgba(180,190,220,.35)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(CX,CY,drumOut,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(180,190,220,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(CX,CY,drumIn,0,Math.PI*2);ctx.stroke();
+  for(let i=0;i<16;i++){
+    const a=ringAng+i*(Math.PI*2/16);
+    ctx.strokeStyle='rgba(200,210,240,.10)';ctx.lineWidth=.8;
+    ctx.beginPath();ctx.moveTo(CX+Math.cos(a)*(drumIn+1),CY+Math.sin(a)*(drumIn+1));ctx.lineTo(CX+Math.cos(a)*(drumOut-1),CY+Math.sin(a)*(drumOut-1));ctx.stroke();
+  }
+
+  // 볼캡 (반구형)
+  for(let ci=0;ci<NCAPS;ci++){
+    const capAng=ringAng+ci*(Math.PI/2);
+    const capX=CX+Math.cos(capAng)*drumMid,capY=CY+Math.sin(capAng)*drumMid;
+    const hasB=ringCaps[ci].n!==null;
+    const aligned=aDiff(capAng,CCAP_ANG)<ALIGN_TOL;
+    const isOpen=aligned&&airStr>0&&!ringCaps[ci].closed;
+    const cupR=(drumOut-drumIn)*0.55;
+    ctx.save();ctx.translate(capX,capY);ctx.rotate(capAng+Math.PI/2);
+    ctx.beginPath();ctx.arc(0,0,cupR,0,Math.PI,false);ctx.closePath();
+    const cg=ctx.createRadialGradient(-cupR*.2,-cupR*.2,cupR*.1,0,0,cupR);
+    if(hasB){cg.addColorStop(0,'rgba(50,200,220,.55)');cg.addColorStop(1,'rgba(10,60,80,.85)');}
+    else if(isOpen){cg.addColorStop(0,'rgba(220,170,30,.45)');cg.addColorStop(1,'rgba(80,50,5,.75)');}
+    else{cg.addColorStop(0,'rgba(200,215,240,.18)');cg.addColorStop(1,'rgba(20,24,38,.80)');}
+    ctx.fillStyle=cg;ctx.fill();
+    ctx.strokeStyle=hasB?'rgba(26,184,196,.9)':isOpen?'rgba(200,146,10,.8)':'rgba(180,195,230,.3)';
+    ctx.lineWidth=hasB?2:isOpen?1.8:1;
+    ctx.beginPath();ctx.arc(0,0,cupR,0,Math.PI,false);ctx.closePath();ctx.stroke();
+    ctx.strokeStyle=hasB?'rgba(26,184,196,.6)':isOpen?'rgba(200,146,10,.5)':'rgba(180,195,230,.15)';
+    ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-cupR,0);ctx.lineTo(cupR,0);ctx.stroke();
+    if(hasB) drawBall(0,cupR*.1,ringCaps[ci].n,bc(ringCaps[ci].n),BR*.75);
+    ctx.restore();
+    if(isOpen&&!hasB&&airStr>0){const pulse=((ts%500)/500);ctx.strokeStyle=`rgba(200,146,10,${0.4*(1-pulse)})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(capX,capY,cupR*(1.5+pulse*1.8),0,Math.PI*2);ctx.stroke();}
+  }
+
+  // 챔버캡
+  const ccX=CX+Math.cos(CCAP_ANG)*(CR+2),ccY=CY+Math.sin(CCAP_ANG)*(CR+2);
+  ctx.fillStyle=`rgba(26,184,196,${ringOn?.22:.06})`;ctx.beginPath();ctx.arc(ccX,ccY,10,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=ringOn?'rgba(26,184,196,.8)':'rgba(36,40,60,.4)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ccX,ccY,10,0,Math.PI*2);ctx.stroke();
+
+  // 에어홀
+  ctx.fillStyle=`rgba(26,184,196,${0.12*airStr})`;ctx.beginPath();ctx.arc(AH1X,AH1Y,AH_R,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=airStr>0?'rgba(26,184,196,.55)':'rgba(36,40,60,.3)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(AH1X,AH1Y,AH_R,0,Math.PI*2);ctx.stroke();
+  if(airStr>0.05){
+    ctx.fillStyle='rgba(26,184,196,.65)';ctx.font='bold 6px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('AH',AH1X,AH1Y);
+    for(let i=0;i<5;i++){const a=(ts/42+i*72)*Math.PI/180;ctx.strokeStyle=`rgba(26,184,196,${0.28*airStr})`;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(AH1X,AH1Y);ctx.lineTo(AH1X+Math.cos(a)*(AH_R-2),AH1Y+Math.sin(a)*(AH_R-2));ctx.stroke();}
+  }
+
+  // 베이스
+  const mCol={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'}[curMachine];
+  ctx.fillStyle='#12151e';rr(CX-CR,CY+CR-4,CR*2,24,5);ctx.fill();
+  ctx.strokeStyle='#1c1f2e';ctx.lineWidth=1;rr(CX-CR,CY+CR-4,CR*2,24,5);ctx.stroke();
+  ctx.fillStyle='#0c0d12';rr(CX-CR+12,CY+CR+3,CR*2-24,11,3);ctx.fill();
+  ctx.fillStyle=airStr>0?mCol:'#3c3b58';
+  ctx.font='bold 7px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  const mN={1:'1호기',2:'2호기',3:'3호기'}; ctx.fillText(`VENUS — ${mN[curMachine]} · ${curGameIdx+1}/${curGameCount}게임`,CX,CY+CR+12);
+
+  if(ringOn){ctx.fillStyle='rgba(26,184,196,.65)';ctx.font='8px IBM Plex Mono';ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillText('⟳ 7.5RPM',12,H-10);}
+  if(airStr>0){ctx.fillStyle='rgba(26,184,196,.5)';ctx.font='8px IBM Plex Mono';ctx.textAlign='right';ctx.textBaseline='alphabetic';ctx.fillText(`AIR ${(airStr*100).toFixed(0)}%`,W-10,H-10);}
+
+  animId=requestAnimationFrame(render);
+}
+
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+
+// ═══════════════════════════════════════════════
+// 통계/과거 페이지
+// ═══════════════════════════════════════════════
+function setHist(n,el){
+  document.querySelectorAll('#htabs .ptab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  const data=n?LALL.slice(0,n):LALL;
+  let html='';
+  data.forEach(h=>{
+    const bhtml=h.nums.map(n=>`<span class="sball" style="background:${bc(n)}">${n<10?'0'+n:n}</span>`).join('');
+    const bonus=`<span class="sball bonus-b" style="background:${bc(h.bonus)}">${h.bonus<10?'0'+h.bonus:h.bonus}</span>`;
+    html+=`<div class="hist-row"><div class="hist-round">${h.round}회</div><div class="hist-date">${h.date}</div><div class="hist-balls">${bhtml}<span style="color:var(--muted);margin:0 3px;">+</span>${bonus}</div></div>`;
+  });
+  document.getElementById('hist-out').innerHTML=html;
+}
+
+function setStat(n,el){
+  document.querySelectorAll('#stabs .ptab').forEach(t=>t.classList.remove('on'));
+  if(el) el.classList.add('on');
+  const data=n?LALL.slice(0,n):LALL;
+  if(!data.length)return;
+
+  // 요약
+  const freq={};
+  for(let i=1;i<=45;i++) freq[i]=0;
+  data.forEach(h=>h.nums.forEach(n=>freq[n]++));
+  const maxF=Math.max(...Object.values(freq));
+  const minF=Math.min(...Object.values(freq));
+  const topN=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0]).join(', ');
+  const coldN=Object.entries(freq).sort((a,b)=>a[1]-b[1]).slice(0,5).map(e=>e[0]).join(', ');
+
+  document.getElementById('stat-summary').innerHTML=`
+    <div class="stat-card"><div class="sc-val">${data.length}</div><div class="sc-lab">분석 회차</div></div>
+    <div class="stat-card"><div class="sc-val">${maxF}</div><div class="sc-lab">최다 출현</div></div>
+    <div class="stat-card"><div class="sc-val">${minF}</div><div class="sc-lab">최소 출현</div></div>
+    <div class="stat-card"><div class="sc-val" style="font-size:12px;">${topN}</div><div class="sc-lab">핫넘버 TOP5</div></div>
+    <div class="stat-card"><div class="sc-val" style="font-size:12px;">${coldN}</div><div class="sc-lab">콜드넘버 TOP5</div></div>`;
+
+  document.getElementById('stat-label').textContent=`번호별 출현 빈도 — ${data.length}회`;
+
+  // 번호 빈도 그리드
+  let html='';
+  for(let n=1;n<=45;n++){
+    const f=freq[n],pct=Math.round(f/maxF*100);
+    html+=`<div class="freq-cell"><div class="fc-num" style="color:${bc(n)}">${n<10?'0'+n:n}</div><div class="fc-cnt">${f}</div><div class="fc-bar"><div style="height:100%;width:${pct}%;background:${bc(n)};border-radius:1px;"></div></div></div>`;
+  }
+  document.getElementById('freq-grid').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════
+// 페이지 전환
+// ═══════════════════════════════════════════════
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('page-'+name).classList.add('on');
+  event.target.classList.add('on');
+}
+
+function initUI(){
+  renderHolders();
+  setHist(20,document.querySelector('#htabs .ptab'));
+  setStat(20,document.querySelector('#stabs .ptab'));
+  spawnBalls();
+  animId=requestAnimationFrame(render);
+}
+
+// style for dot animation
+const dotStyle=document.createElement('style');
+dotStyle.textContent='@keyframes pd{0%,100%{opacity:1}50%{opacity:.3}}';
+document.head.appendChild(dotStyle);
+
+// ── 비번 ──
+const PIN_CORRECT = '1234';
+let pinBuf = '';
+function pinKey(k){
+  if(pinBuf.length>=4) return;
+  pinBuf+=k;
+  updatePinDots();
+  if(pinBuf.length===4) setTimeout(checkPin,120);
+}
+function pinDel(){ pinBuf=pinBuf.slice(0,-1); updatePinDots(); }
+function pinClear(){ pinBuf=''; updatePinDots(); }
+function updatePinDots(){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById('pd'+i);
+    d.classList.toggle('filled',i<pinBuf.length);
     d.classList.remove('error');
   }
 }
 function checkPin(){
-  if(pinInput === PASSWORD){
-    document.getElementById('lockScreen').style.display='none';
-    document.getElementById('mainApp').style.display='block';
-    loadLottoData();
+  if(pinBuf===PIN_CORRECT){
+    document.getElementById('pin-overlay').classList.add('hidden');
   } else {
-    for(let i=0;i<4;i++) document.getElementById('dot'+i).classList.add('error');
-    document.getElementById('lockMsg').textContent = '비밀번호가 틀렸습니다';
-    setTimeout(()=>{ pinInput=''; updateDots(); document.getElementById('lockMsg').textContent=''; },800);
+    for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.add('error');
+    document.getElementById('pin-err').textContent='비밀번호가 틀렸습니다';
+    setTimeout(()=>{
+      pinBuf=''; updatePinDots();
+      document.getElementById('pin-err').textContent='';
+    },800);
   }
 }
-function doLock(){
-  pinInput='';
-  updateDots();
-  document.getElementById('lockMsg').textContent='';
-  document.getElementById('mainApp').style.display='none';
-  document.getElementById('lockScreen').style.display='flex';
-}
 
-// ===== 앱 전환 =====
-function switchApp(name){
-  ['lotto','annuity','venus'].forEach((n,i)=>{
-    document.querySelectorAll('.app-tab')[i].classList.toggle('active',n===name);
-    document.getElementById('view-'+n).classList.toggle('active',n===name);
-  });
-  // 비너스 뷰 진입 시 초기화
-  if(name==='venus' && !vInitDone) initVenus();
-}
-function switchTab(prefix, name){
-  const panels = prefix==='l' ? ['draw','auto','compare','stat'] : ['draw','auto','hist','stat'];
-  const tabEl = document.querySelectorAll(prefix==='l' ? '#lottoTabs .tab' : '.app-view.active .tabs .tab');
-  panels.forEach((n,i)=>{
-    if(tabEl[i]) tabEl[i].classList.toggle('active', n===name);
-    const p = document.getElementById(prefix+'-panel-'+n);
-    if(p) p.classList.toggle('active', n===name);
-  });
-}
-
-// ========================================
-// 로또 데이터
-// ========================================
-let LALL = [];
-let LLATEST = null;
-let lCmpPicks = [];
-
-function bc(n){ return n<=10?'b1':n<=20?'b2':n<=30?'b3':n<=40?'b4':'b5'; }
-function bchex(n){ return n<=10?'#e6a817':n<=20?'#3a82d6':n<=30?'#d63030':n<=40?'#64686e':'#2a8f52'; }
-
-async function loadLottoData(){
-  try {
-    const first = await lApi(1215);
-    const maxR = first ? first.round : 1215;
-    const loadUntil = Math.max(1, maxR-119);
-    let loaded=0; const total=maxR-loadUntil+1; const results=[];
-    for(let r=maxR; r>=loadUntil; r-=15){
-      const batch=[];
-      for(let i=r; i>Math.max(r-15,loadUntil-1); i--) batch.push(lApi(i));
-      const res=await Promise.all(batch);
-      res.forEach(d=>{ if(d) results.push(d); });
-      loaded+=batch.length;
-      const pct=Math.round(loaded/total*100);
-      document.getElementById('loadBar').style.width=pct+'%';
-      document.getElementById('loadText').textContent=`로또 데이터 ${loaded}/${total}회차 (${pct}%)`;
-    }
-    results.sort((a,b)=>b.round-a.round);
-    LALL=results; LLATEST=LALL[0];
-    onLottoLoaded();
-  } catch(e){ lFallback(); }
-}
-
-async function lApi(round){
-  try {
-    const r=await fetch(`https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=${round}`);
-    const d=await r.json();
-    if(d.returnValue!=='success') return null;
-    return {round:d.drwNo,nums:[d.drwtNo1,d.drwtNo2,d.drwtNo3,d.drwtNo4,d.drwtNo5,d.drwtNo6].sort((a,b)=>a-b),bonus:d.bnusNo,date:d.drwNoDate};
-  } catch(e){ return null; }
-}
-
-function lFallback(){
-  LALL=[
-    {round:1215,nums:[13,15,19,21,44,45],bonus:39,date:'2026-03-14'},
-    {round:1214,nums:[10,15,19,27,30,33],bonus:14,date:'2026-03-07'},
-    {round:1213,nums:[5,11,25,27,36,38],bonus:2,date:'2026-02-28'},
-    {round:1212,nums:[5,8,25,31,41,44],bonus:45,date:'2026-02-21'},
-    {round:1211,nums:[23,26,27,35,38,40],bonus:10,date:'2026-02-14'},
-    {round:1210,nums:[1,7,9,17,27,38],bonus:31,date:'2026-02-07'},
-    {round:1209,nums:[2,17,20,35,37,39],bonus:24,date:'2026-01-31'},
-    {round:1208,nums:[6,27,30,36,38,42],bonus:25,date:'2026-01-24'},
-    {round:1207,nums:[10,22,24,27,38,45],bonus:11,date:'2026-01-17'},
-    {round:1206,nums:[1,3,17,26,27,42],bonus:23,date:'2026-01-10'},
-    {round:1205,nums:[1,4,16,23,31,41],bonus:2,date:'2026-01-03'},
-    {round:1204,nums:[8,16,28,30,31,44],bonus:27,date:'2025-12-27'},
-    {round:1203,nums:[3,6,18,29,35,39],bonus:24,date:'2025-12-20'},
-    {round:1202,nums:[5,12,21,33,37,40],bonus:7,date:'2025-12-13'},
-    {round:1201,nums:[7,9,24,27,35,36],bonus:37,date:'2025-12-06'},
-    {round:1200,nums:[4,11,23,29,32,44],bonus:16,date:'2025-11-29'},
-    {round:1199,nums:[6,14,21,28,34,40],bonus:3,date:'2025-11-22'},
-    {round:1198,nums:[2,9,19,31,37,42],bonus:22,date:'2025-11-15'},
-    {round:1197,nums:[10,18,25,30,38,43],bonus:5,date:'2025-11-08'},
-    {round:1196,nums:[1,12,20,27,33,41],bonus:17,date:'2025-11-01'},
-  ];
-  LLATEST=LALL[0];
-  document.getElementById('loadText').textContent='⚠ 오프라인 모드 (내장 데이터)';
-  document.getElementById('loadBar').style.width='100%';
-  setTimeout(onLottoLoaded,400);
-}
-
-function onLottoLoaded(){
-  LLATEST=LALL[0];
-  document.getElementById('loadText').style.display='none';
-  document.getElementById('loadBar').style.display='none';
-  document.getElementById('lottoApp').style.display='block';
-  document.getElementById('lottoHeader').innerHTML=`최신 <strong>${LLATEST.round}회</strong> · ${LLATEST.date} · 매주 토요일 20:35 MBC`;
-  lRenderPicker(); lSetPeriod(10,document.querySelector('#lPtabs .ptab'));
-}
-
-// 로또 추첨 시뮬
-let lDrawRunning=false, lDrawT=null;
-function lResetDraw(){
-  if(lDrawT) clearTimeout(lDrawT);
-  lDrawRunning=false;
-  document.getElementById('lDrawBtn').disabled=false;
-  document.getElementById('lDrawBtn').textContent='▶ 추첨 시작';
-  document.getElementById('ldBar').style.width='0%';
-  document.getElementById('ldLabel').textContent='대기 중';
-  document.getElementById('ldSec').textContent='';
-  document.getElementById('ldStatus').textContent='';
-  document.getElementById('ldStatus').className='t-status';
-  const el=document.getElementById('lDrawBalls'); el.innerHTML='';
-  for(let i=0;i<6;i++){const b=document.createElement('div');b.className='ball lg empty';b.textContent='?';el.appendChild(b);}
-  const pl=document.createElement('span');pl.className='plus';pl.textContent='+';el.appendChild(pl);
-  const bn=document.createElement('div');bn.className='ball lg empty';bn.style.opacity='0.4';bn.textContent='?';el.appendChild(bn);
-}
-function randLotto(){
-  // 실제 추첨처럼 완전 랜덤 순서 (정렬 없음)
-  const pool=Array.from({length:45},(_,i)=>i+1); const p=[];
-  while(p.length<6){const i=Math.floor(Math.random()*pool.length);p.push(pool.splice(i,1)[0]);}
-  return p; // 뽑힌 순서 그대로
-}
-function lStartDraw(){
-  if(lDrawRunning) return; lDrawRunning=true;
-  document.getElementById('lDrawBtn').disabled=true;
-  const nums=randLotto();
-  const pool=Array.from({length:45},(_,i)=>i+1).filter(n=>!nums.includes(n));
-  const bonus=pool[Math.floor(Math.random()*pool.length)];
-  lWarmup(nums,bonus);
-}
-function lWarmup(nums,bonus){
-  // ── 1단계: 버튼 누른 후 7초 대기 (공 정지 상태) ──
-  document.getElementById('ldLabel').textContent='추첨 준비 중';
-  document.getElementById('ldStatus').textContent='버튼이 눌렸습니다. 기계 가동 대기 중...';
-  document.getElementById('ldStatus').className='t-status on';
-  let e=0; const T1=7000;
-  const waitTick=()=>{
-    e+=100; document.getElementById('ldBar').style.width=Math.min(e/T1*100,100)+'%';
-    document.getElementById('ldSec').textContent=Math.ceil((T1-e)/1000)+'s';
-    if(e<T1){ lDrawT=setTimeout(waitTick,100); }
-    else {
-      // ── 2단계: 기계 가동 — 모든 공 동시 스피닝 시작, 6초 후 첫 공 확정 ──
-      document.getElementById('ldLabel').textContent='기계 가동 중';
-      document.getElementById('ldStatus').textContent='에어믹스 작동 — 73~80m/s 바람으로 볼 혼합 중...';
-      const balls=document.getElementById('lDrawBalls').querySelectorAll('.ball');
-      balls.forEach(b=>{ b.classList.remove('empty'); b.classList.add('spinning'); b.style.opacity='1'; });
-      let e2=0; const T2=6000;
-      const activeTick=()=>{
-        e2+=100; document.getElementById('ldBar').style.width=Math.min(e2/T2*100,100)+'%';
-        document.getElementById('ldSec').textContent=Math.ceil((T2-e2)/1000)+'s';
-        // 모든 공 동시 랜덤 스피닝
-        balls.forEach(b=>{
-          const r=Math.floor(Math.random()*45)+1;
-          b.textContent=r<10?'0'+r:r; b.style.background=bchex(r); b.style.color='#fff';
-        });
-        if(e2<T2){ lDrawT=setTimeout(activeTick,100); }
-        else {
-          // 가동 완료 → 첫 공 추첨 시작
-          balls.forEach(b=>{ b.classList.remove('spinning'); b.classList.add('empty'); b.textContent='?'; b.style.background=''; b.style.color=''; });
-          document.getElementById('ldStatus').textContent='기계 가동 완료! 첫 번째 공 추첨 중...';
-          lDrawT=setTimeout(()=>lDrawBall(nums,bonus,0),300);
-        }
-      };
-      lDrawT=setTimeout(activeTick,100);
-    }
-  };
-  lDrawT=setTimeout(waitTick,100);
-}
-// 로또 추첨 중 미확정 공 계속 스피닝 인터벌
-let lSpinInterval = null;
-function lStartBgSpin(balls, confirmedSet){
-  if(lSpinInterval) clearInterval(lSpinInterval);
-  lSpinInterval = setInterval(()=>{
-    balls.forEach((b,i)=>{
-      if(!confirmedSet.has(i)){
-        const r=Math.floor(Math.random()*45)+1;
-        b.textContent=r<10?'0'+r:r;
-        b.style.background=bchex(r); b.style.color='#fff';
-      }
-    });
-  }, 100);
-}
-function lStopBgSpin(){ if(lSpinInterval){ clearInterval(lSpinInterval); lSpinInterval=null; } }
-
-function lDrawBall(nums,bonus,idx){
-  const isB=idx===6, val=isB?bonus:nums[idx];
-  const allBalls=Array.from(document.getElementById('lDrawBalls').querySelectorAll('.ball'));
-  const confirmedSet=new Set();
-  for(let i=0;i<idx;i++) confirmedSet.add(i);
-  if(isB) for(let i=0;i<6;i++) confirmedSet.add(i);
-  const target=allBalls[isB?6:idx];
-  const labels=['1번째','2번째','3번째','4번째','5번째','6번째','보너스'];
-  document.getElementById('ldLabel').textContent=labels[idx]+' 번호';
-  document.getElementById('ldStatus').textContent=labels[idx]+' 공 추첨 중...';
-  // 미확정 공들 계속 스피닝
-  lStartBgSpin(allBalls, confirmedSet);
-  let e=0; const T=6000; // 공 간격 6초
-  const tick=()=>{
-    e+=100; document.getElementById('ldBar').style.width=Math.min(e/T*100,100)+'%';
-    document.getElementById('ldSec').textContent=Math.ceil((T-e)/1000)+'s';
-    if(e<T) lDrawT=setTimeout(tick,100);
-    else {
-      lStopBgSpin();
-      target.classList.remove('spinning','empty');
-      target.classList.add('landed');
-      target.style.background=bchex(val);
-      target.style.color='#fff';
-      target.textContent=val<10?'0'+val:val;
-      if(idx<6){
-        lDrawT=setTimeout(()=>lDrawBall(nums,bonus,idx+1),400);
-      } else {
-        lStopBgSpin();
-        document.getElementById('ldLabel').textContent='추첨 완료';
-        document.getElementById('ldSec').textContent='';
-        const sorted=[...nums].sort((a,b)=>a-b);
-        document.getElementById('ldStatus').textContent=`당첨번호: ${sorted.map(n=>n<10?'0'+n:n).join('  ')}  +  보너스 ${bonus<10?'0'+bonus:bonus}`;
-        document.getElementById('lDrawBtn').disabled=false;
-        document.getElementById('lDrawBtn').textContent='▶ 다시 추첨';
-        lDrawRunning=false;
-      }
-    }
-  };
-  lDrawT=setTimeout(tick,100);
-}
-
-// 로또 자동 생성 — 게임마다 예열(30초) + 추첨(4초×7개) 풀 사이클
-let lAutoRunning=false, lAutoT=null;
-
-function lGetRank(my,win,bon){
-  const m=my.filter(n=>win.includes(n)).length, hb=my.includes(bon);
-  if(m===6) return {r:'1등',c:'var(--red)'};
-  if(m===5&&hb) return {r:'2등',c:'var(--blue)'};
-  if(m===5) return {r:'3등',c:'var(--gold)'};
-  if(m===4) return {r:'4등',c:'var(--gray)'};
-  if(m===3) return {r:'5등',c:'var(--gray)'};
-  return {r:'낙첨',c:'var(--muted2)'};
-}
-
-function lSetAutoBtns(off){
-  ['lAutoBtn','lAutoBtn5','lAutoBtn10'].forEach(id=>{ const e=document.getElementById(id); if(e) e.disabled=off; });
-}
-
-function lResetMiniStage(){
-  const s=document.getElementById('lMiniStage'); s.innerHTML='';
-  for(let i=0;i<6;i++){const b=document.createElement('div');b.className='ball lg empty';b.textContent='?';s.appendChild(b);}
-  const pl=document.createElement('span');pl.className='plus';pl.textContent='+';s.appendChild(pl);
-  const bn=document.createElement('div');bn.className='ball lg empty';bn.style.opacity='0.4';bn.textContent='?';s.appendChild(bn);
-}
-
-function lStartAutoQueue(count){
-  if(lAutoRunning) return;
-  lAutoRunning=true;
-  lSetAutoBtns(true);
-  document.getElementById('lAutoOut').innerHTML='';
-  lResetMiniStage();
-  lRunAutoGame(count, 0, []);
-}
-
-function lRunAutoGame(total, cur, results){
-  if(cur >= total){
-    lAutoRunning=false; lSetAutoBtns(false);
-    document.getElementById('lAutoStatus').textContent=`✓ ${total}게임 추첨 완료`;
-    lRenderAutoResults(results);
-    return;
-  }
-  // 번호 미리 생성
-  const pool=Array.from({length:45},(_,i)=>i+1), nums=[];
-  while(nums.length<6){const i=Math.floor(Math.random()*pool.length);nums.push(pool.splice(i,1)[0]);}
-  const bPool=Array.from({length:45},(_,i)=>i+1).filter(n=>!nums.includes(n));
-  const bonus=bPool[Math.floor(Math.random()*bPool.length)];
-
-  lResetMiniStage();
-  // 예열
-  lAutoWarmup(cur, total, nums, bonus, ()=>{
-    // 공 추첨
-    lAutoDrawBall(nums, bonus, 0, ()=>{
-      results.push({nums:[...nums], bonus});
-      // 결과 잠깐 보여주고 다음 게임
-      document.getElementById('lAutoStatus').textContent=`${cur+1}/${total} 완료 — ${[...nums].sort((a,b)=>a-b).map(n=>n<10?'0'+n:n).join(' ')}`;
-      lAutoT=setTimeout(()=>lRunAutoGame(total, cur+1, results), 1500);
-    });
-  });
-}
-
-function lAutoWarmup(cur, total, nums, bonus, onDone){
-  // 1단계: 7초 대기 (공 정지)
-  document.getElementById('lAutoStatus').textContent=`${cur+1}/${total} 게임 — 추첨 준비 중...`;
-  const balls=document.getElementById('lMiniStage').querySelectorAll('.ball');
-  let e=0; const T1=7000;
-  const waitTick=()=>{
-    e+=100;
-    document.getElementById('lAutoStatus').textContent=`${cur+1}/${total} 게임 — 대기 중 ${Math.ceil((T1-e)/1000)}s`;
-    if(e<T1){ lAutoT=setTimeout(waitTick,100); }
-    else {
-      // 2단계: 기계 가동 — 모든 공 스피닝, 6초
-      document.getElementById('lAutoStatus').textContent=`${cur+1}/${total} 게임 — 기계 가동 중...`;
-      balls.forEach(b=>{ b.classList.remove('empty'); b.classList.add('spinning'); b.style.opacity='1'; });
-      let e2=0; const T2=6000;
-      const activeTick=()=>{
-        e2+=100;
-        document.getElementById('lAutoStatus').textContent=`${cur+1}/${total} 게임 — 가동 중 ${Math.ceil((T2-e2)/1000)}s`;
-        balls.forEach(b=>{ const r=Math.floor(Math.random()*45)+1; b.textContent=r<10?'0'+r:r; b.style.background=bchex(r); b.style.color='#fff'; });
-        if(e2<T2){ lAutoT=setTimeout(activeTick,100); }
-        else {
-          balls.forEach(b=>{ b.classList.remove('spinning'); b.classList.add('empty'); b.textContent='?'; b.style.background=''; b.style.color=''; });
-          document.getElementById('lAutoStatus').textContent=`${cur+1}/${total} 게임 — 가동 완료! 추첨 시작`;
-          lAutoT=setTimeout(onDone,300);
-        }
-      };
-      lAutoT=setTimeout(activeTick,100);
-    }
-  };
-  lAutoT=setTimeout(waitTick,100);
-}
-
-function lAutoDrawBall(nums, bonus, idx, onDone){
-  const isB=idx===6, val=isB?bonus:nums[idx];
-  const stage=document.getElementById('lMiniStage');
-  const allBalls=Array.from(stage.querySelectorAll('.ball'));
-  const confirmedSet=new Set();
-  for(let i=0;i<idx;i++) confirmedSet.add(i);
-  if(isB) for(let i=0;i<6;i++) confirmedSet.add(i);
-  // 백그라운드 스피닝
-  if(lSpinInterval) clearInterval(lSpinInterval);
-  lSpinInterval=setInterval(()=>{
-    allBalls.forEach((b,i)=>{
-      if(!confirmedSet.has(i)){
-        const r=Math.floor(Math.random()*45)+1;
-        b.textContent=r<10?'0'+r:r; b.style.background=bchex(r); b.style.color='#fff';
-        b.classList.remove('empty');
-      }
-    });
-  },100);
-  let e=0; const T=6000; // 공 간격 6초
-  const tick=()=>{
-    e+=100;
-    if(e<T) lAutoT=setTimeout(tick,100);
-    else {
-      lStopBgSpin();
-      const target=allBalls[isB?6:idx];
-      target.classList.remove('spinning','empty');
-      target.classList.add('landed');
-      target.style.background=bchex(val); target.style.color='#fff';
-      target.textContent=val<10?'0'+val:val;
-      if(idx<6) lAutoT=setTimeout(()=>lAutoDrawBall(nums,bonus,idx+1,onDone),400);
-      else onDone();
-    }
-  };
-  lAutoT=setTimeout(tick,100);
-}
-
-
-function lRenderAutoResults(results){
-  const wrap=document.getElementById('lAutoOut'); wrap.innerHTML='';
-  results.forEach((g,i)=>{
-    const sorted=[...g.nums].sort((a,b)=>a-b);
-    const rk=lGetRank(sorted,LLATEST.nums,LLATEST.bonus);
-    const div=document.createElement('div'); div.className='auto-ticket';
-    let bh=''; sorted.forEach(n=>{bh+=`<div class="ball sm ${bc(n)}${LLATEST.nums.includes(n)?'':' dim'}">${n<10?'0'+n:n}</div>`;});
-    div.innerHTML=`<div class="at-label">${String.fromCharCode(65+i)}</div><div class="at-balls">${bh}</div><div class="at-result" style="color:${rk.c}">${rk.r}</div>`;
-    wrap.appendChild(div);
-  });
-  const info=document.createElement('div');
-  info.style.cssText='margin-top:10px;padding:9px;background:var(--bg);border:1px solid var(--border);font-size:11px;color:var(--muted);';
-  let lh=`기준 ${LLATEST.round}회: `;
-  LLATEST.nums.forEach(n=>{lh+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${bchex(n)};color:#fff;font-size:9px;font-weight:600;margin:1px;">${n}</span>`;});
-  lh+=`<span style="margin:0 3px;color:var(--muted2);">+</span><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${bchex(LLATEST.bonus)};color:#fff;font-size:9px;opacity:0.6;">${LLATEST.bonus}</span> · 어두운 공=미일치`;
-  info.innerHTML=lh; wrap.appendChild(info);
-}
-
-// 로또 번호피커
-function lRenderPicker(){
-  const el=document.getElementById('lPicker'); el.innerHTML='';
-  for(let n=1;n<=45;n++){
-    const b=document.createElement('div'); b.className='pb'+(lCmpPicks.includes(n)?' sel':'');
-    if(lCmpPicks.includes(n)) b.style.background=bchex(n);
-    b.textContent=n<10?'0'+n:n;
-    b.onclick=()=>{
-      if(lCmpPicks.includes(n)) lCmpPicks.splice(lCmpPicks.indexOf(n),1);
-      else if(lCmpPicks.length<6){lCmpPicks.push(n);lCmpPicks.sort((a,b)=>a-b);}
-      lRenderPicker(); lUpdateSel();
-    };
-    el.appendChild(b);
-  }
-}
-function lUpdateSel(){
-  const row=document.getElementById('lSelRow'); row.innerHTML='';
-  if(!lCmpPicks.length){row.innerHTML='<span class="sel-hint">번호를 선택하세요 (0/6)</span>';return;}
-  lCmpPicks.forEach(n=>{const b=document.createElement('div');b.className=`ball md ${bc(n)}`;b.textContent=n<10?'0'+n:n;row.appendChild(b);});
-  if(lCmpPicks.length<6){const s=document.createElement('span');s.className='sel-hint';s.textContent=lCmpPicks.length+'/6';row.appendChild(s);}
-}
-function lClearCmp(){lCmpPicks=[];lRenderPicker();lUpdateSel();document.getElementById('lAnalysisOut').style.display='none';}
-
-// 로또 분석
-function lRunAnalysis(){
-  if(lCmpPicks.length<6){alert('6개를 모두 선택해주세요');return;}
-  const my=lCmpPicks, N=LALL.length;
-  const totalCnt=Array(46).fill(0);
-  LALL.forEach(h=>h.nums.forEach(n=>totalCnt[n]++));
-  const avgCnt=N*6/45;
-  const myCnt={}, lastSeen={};
-  my.forEach(n=>{myCnt[n]=0;lastSeen[n]=null;});
-  let totalMatch=0, bestMatch=0;
-  LALL.forEach((h,i)=>{
-    my.forEach(n=>{if(h.nums.includes(n)){myCnt[n]++;if(!lastSeen[n])lastSeen[n]={round:h.round,date:h.date,ago:i};}});
-    const m=my.filter(n=>h.nums.includes(n)).length;
-    totalMatch+=m; if(m>bestMatch) bestMatch=m;
-  });
-  document.getElementById('lAnaSummary').innerHTML=`
-    <div class="as-card"><div class="as-val">${(totalMatch/N).toFixed(2)}</div><div class="as-label">평균 일치 수</div></div>
-    <div class="as-card"><div class="as-val">${bestMatch}개</div><div class="as-label">최다 일치</div></div>
-    <div class="as-card"><div class="as-val">${N}</div><div class="as-label">분석 회차</div></div>
-    <div class="as-card"><div class="as-val">${totalMatch}</div><div class="as-label">총 일치 횟수</div></div>`;
-  const recent30=LALL.slice(0,30);
-  let rowsHtml='';
-  my.forEach(n=>{
-    const cnt=myCnt[n], ls=lastSeen[n];
-    const isHot=totalCnt[n]>avgCnt*1.12, isCold=totalCnt[n]<avgCnt*0.88;
-    const barPct=Math.round(cnt/Math.max(...my.map(x=>myCnt[x]),1)*100);
-    let dotsHtml='';
-    recent30.forEach(h=>{dotsHtml+=`<div class="dot ${h.nums.includes(n)?'hit':'miss'}" title="${h.round}회" style="${h.nums.includes(n)?`background:${bchex(n)};`:''}"></div>`;});
-    rowsHtml+=`<div class="num-row"><div class="nr-ball"><div class="ball md ${bc(n)}">${n<10?'0'+n:n}</div></div>
-      <div class="nr-info">
-        <div class="nr-top"><span class="nr-cnt">${cnt}회</span><span class="nr-pct">${N}회 중 ${(cnt/N*100).toFixed(1)}%</span><span class="tag ${isHot?'tag-hot':isCold?'tag-cold':'tag-mid'}">${isHot?'HOT':isCold?'COLD':'보통'}</span></div>
-        <div class="nr-bar-bg"><div class="nr-bar" style="width:${barPct}%;background:${bchex(n)};"></div></div>
-        <div class="nr-dots">${dotsHtml}</div>
-        <div class="nr-last">최근 30회 히트 · 최근: ${ls?`${ls.round}회 (${ls.date}, ${ls.ago+1}회전 전)`:'없음'}</div>
-      </div></div>`;
-  });
-  document.getElementById('lNumRows').innerHTML=rowsHtml;
-  const sorted=LALL.map(h=>{const matched=my.filter(n=>h.nums.includes(n));return {...h,matched,cnt:matched.length,hb:my.includes(h.bonus)};}).sort((a,b)=>b.cnt-a.cnt||b.round-a.round).slice(0,5);
-  let bmHtml='';
-  sorted.forEach(m=>{
-    const rk=lGetRank(my,m.nums,m.bonus);
-    let bh=''; m.nums.forEach(n=>{bh+=`<div class="ball sm ${bc(n)}${my.includes(n)?'':' dim'}">${n<10?'0'+n:n}</div>`;});
-    bh+=`<span class="plus">+</span><div class="ball sm ${bc(m.bonus)}${m.hb?'':' dim'}">${m.bonus<10?'0'+m.bonus:m.bonus}</div>`;
-    bmHtml+=`<div class="bm-item"><div class="bm-round">${m.round}회<br><span style="color:var(--muted2)">${m.date}</span></div><div class="bm-balls">${bh}</div><div class="bm-result"><div class="bm-cnt" style="color:${m.cnt>=5?'var(--red)':m.cnt>=3?'var(--gray)':'var(--muted2)'}">${m.cnt}개</div><div style="font-size:9px;color:var(--muted)">${rk.r}</div></div></div>`;
-  });
-  document.getElementById('lBestMatches').innerHTML=bmHtml;
-  document.getElementById('lAnalysisOut').style.display='block';
-}
-
-// 로또 통계
-function lSetPeriod(n,el){
-  document.querySelectorAll('#lPtabs .ptab').forEach(t=>t.classList.remove('active')); el.classList.add('active');
-  const data=LALL.slice(0,n); if(!data.length) return;
-  const cnt=Array(46).fill(0); data.forEach(h=>h.nums.forEach(x=>cnt[x]++));
-  const maxCnt=Math.max(...cnt.slice(1));
-  const sorted=[...cnt.slice(1).entries()].map(([i,c])=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
-  document.getElementById('lStatTop').innerHTML=`
-    <div class="sti"><div class="sti-val" style="display:flex;align-items:center;gap:5px;"><div class="ball sm ${bc(sorted[0].n)}">${sorted[0].n<10?'0'+sorted[0].n:sorted[0].n}</div><span style="color:var(--red)">${sorted[0].c}회</span></div><div class="sti-label">가장 많이</div></div>
-    <div class="sti"><div class="sti-val" style="display:flex;align-items:center;gap:5px;"><div class="ball sm ${bc(sorted[44].n)}" style="opacity:0.4">${sorted[44].n<10?'0'+sorted[44].n:sorted[44].n}</div><span style="color:var(--muted)">${sorted[44].c}회</span></div><div class="sti-label">가장 적게</div></div>
-    <div class="sti"><div class="sti-val">${n}회차</div><div class="sti-label">${data[data.length-1]?.round}~${data[0]?.round}회</div></div>`;
-  document.getElementById('lStatLabel').textContent=`번호별 출현 빈도 — 최근 ${n}회`;
-  const grid=document.getElementById('lFreqGrid'); grid.innerHTML='';
-  sorted.forEach(({n:num,c},rank)=>{
-    const isHot=rank<5, isCold=rank>=40, barW=Math.round(c/maxCnt*100);
-    const lastH=data.find(h=>h.nums.includes(num)), lastStr=lastH?`${lastH.round}회`:'없음';
-    const row=document.createElement('div'); row.className='freq-row';
-    row.innerHTML=`<div class="fr-rank">${rank+1}</div><div class="ball xs ${bc(num)}" style="${isCold?'opacity:0.4;':''}">${num<10?'0'+num:num}</div><div class="fr-bar-wrap"><div class="fr-bar" style="width:${barW}%;background:${bchex(num)};${isCold?'opacity:0.4;':''}"></div></div><div class="fr-cnt">${c}회</div><div class="fr-last">${lastStr}</div><div style="width:34px;text-align:right"><span class="tag ${isHot?'tag-hot':isCold?'tag-cold':'tag-mid'}">${isHot?'HOT':isCold?'COLD':'─'}</span></div>`;
-    grid.appendChild(row);
-  });
-}
-
-// ========================================
-// 연금복권 데이터
-// ========================================
-let AALL = [
-  {round:306,jo:4,win:'545380',bonus:'394402',date:'2026-03-12'},
-  {round:305,jo:2,win:'331316',bonus:'509988',date:'2026-03-05'},
-  {round:304,jo:5,win:'234931',bonus:'438985',date:'2026-02-26'},
-  {round:303,jo:4,win:'639566',bonus:'619136',date:'2026-02-19'},
-  {round:302,jo:4,win:'639927',bonus:'055495',date:'2026-02-12'},
-  {round:301,jo:4,win:'748559',bonus:'812029',date:'2026-02-05'},
-  {round:300,jo:1,win:'455490',bonus:'428554',date:'2026-01-29'},
-  {round:299,jo:2,win:'282945',bonus:'902252',date:'2026-01-22'},
-  {round:298,jo:3,win:'960211',bonus:'492845',date:'2026-01-15'},
-  {round:297,jo:5,win:'444163',bonus:'248825',date:'2026-01-08'},
-  {round:296,jo:1,win:'667975',bonus:'988431',date:'2026-01-01'},
-  {round:295,jo:3,win:'751272',bonus:'290334',date:'2025-12-25'},
-  {round:294,jo:1,win:'746186',bonus:'171023',date:'2025-12-18'},
-  {round:293,jo:3,win:'650321',bonus:'510238',date:'2025-12-11'},
-  {round:292,jo:4,win:'971630',bonus:'140693',date:'2025-12-04'},
-  {round:291,jo:4,win:'149309',bonus:'036179',date:'2025-11-27'},
-  {round:290,jo:5,win:'200115',bonus:'694748',date:'2025-11-20'},
-  {round:289,jo:3,win:'585935',bonus:'853647',date:'2025-11-13'},
-  {round:288,jo:5,win:'112703',bonus:'598143',date:'2025-11-06'},
-  {round:287,jo:5,win:'614749',bonus:'435160',date:'2025-10-30'},
-  {round:286,jo:2,win:'824756',bonus:'783962',date:'2025-10-23'},
-  {round:285,jo:1,win:'392841',bonus:'174523',date:'2025-10-16'},
-  {round:284,jo:3,win:'507362',bonus:'291847',date:'2025-10-09'},
-  {round:283,jo:2,win:'163908',bonus:'582340',date:'2025-10-02'},
-  {round:282,jo:5,win:'847213',bonus:'630495',date:'2025-09-25'},
-  {round:281,jo:1,win:'294758',bonus:'163042',date:'2025-09-18'},
-  {round:280,jo:4,win:'531907',bonus:'248635',date:'2025-09-11'},
-  {round:279,jo:2,win:'716384',bonus:'905127',date:'2025-09-04'},
-  {round:278,jo:3,win:'452096',bonus:'371582',date:'2025-08-28'},
-  {round:277,jo:5,win:'983620',bonus:'147503',date:'2025-08-21'},
-  {round:276,jo:1,win:'347851',bonus:'206934',date:'2025-08-14'},
-  {round:275,jo:4,win:'692037',bonus:'815240',date:'2025-08-07'},
-  {round:274,jo:2,win:'158473',bonus:'360791',date:'2025-07-31'},
-  {round:273,jo:3,win:'804516',bonus:'592038',date:'2025-07-24'},
-  {round:272,jo:5,win:'371249',bonus:'648305',date:'2025-07-17'},
-  {round:271,jo:1,win:'926783',bonus:'041596',date:'2025-07-10'},
-  {round:270,jo:4,win:'540168',bonus:'279354',date:'2025-07-03'},
-  {round:269,jo:2,win:'813597',bonus:'462018',date:'2025-06-26'},
-  {round:268,jo:3,win:'267043',bonus:'530187',date:'2025-06-19'},
-  {round:267,jo:5,win:'495820',bonus:'173406',date:'2025-06-12'},
-  {round:266,jo:1,win:'738264',bonus:'051739',date:'2025-06-05'},
-  {round:265,jo:4,win:'182635',bonus:'907421',date:'2025-05-29'},
-  {round:264,jo:2,win:'654901',bonus:'283567',date:'2025-05-22'},
-  {round:263,jo:3,win:'917348',bonus:'640215',date:'2025-05-15'},
-  {round:262,jo:5,win:'403876',bonus:'159342',date:'2025-05-08'},
-  {round:261,jo:1,win:'862519',bonus:'734086',date:'2025-05-01'},
-  {round:260,jo:4,win:'235784',bonus:'019653',date:'2025-04-24'},
-  {round:259,jo:2,win:'590137',bonus:'874260',date:'2025-04-17'},
-  {round:258,jo:3,win:'746902',bonus:'213548',date:'2025-04-10'},
-  {round:257,jo:5,win:'318465',bonus:'590273',date:'2025-04-03'},
-  {round:256,jo:1,win:'674230',bonus:'148905',date:'2025-03-27'},
-  {round:255,jo:4,win:'901587',bonus:'362741',date:'2025-03-20'},
-  {round:254,jo:2,win:'453019',bonus:'726384',date:'2025-03-13'},
-  {round:253,jo:3,win:'827364',bonus:'051492',date:'2025-03-06'},
-  {round:252,jo:5,win:'196043',bonus:'438720',date:'2025-02-27'},
-  {round:251,jo:1,win:'582670',bonus:'914035',date:'2025-02-20'},
-  {round:250,jo:4,win:'734908',bonus:'261574',date:'2025-02-13'},
-  {round:249,jo:2,win:'361452',bonus:'807239',date:'2025-02-06'},
-  {round:248,jo:3,win:'905827',bonus:'473106',date:'2025-01-30'},
-  {round:247,jo:5,win:'218934',bonus:'650781',date:'2025-01-23'},
-];
-
-// 연금 추첨
-let aDrawRunning=false, aDrawT=null;
-function aResetDraw(){
-  if(aDrawT) clearTimeout(aDrawT);
-  aDrawRunning=false;
-  document.getElementById('aDrawBtn').disabled=false; document.getElementById('aDrawBtn').textContent='▶ 추첨 시작';
-  document.getElementById('adBar').style.width='0%'; document.getElementById('adLabel').textContent='대기 중';
-  document.getElementById('adSec').textContent=''; document.getElementById('adStatus').textContent=''; document.getElementById('adStatus').className='t-status';
-  const jo=document.getElementById('aDrawJo'); jo.textContent='?조'; jo.className='draw-jo';
-  for(let i=0;i<6;i++){const b=document.getElementById('ab'+i);b.textContent='?';b.className='d-ball';}
-}
-function aStartDraw(){
-  if(aDrawRunning) return; aDrawRunning=true; document.getElementById('aDrawBtn').disabled=true;
-  const jo=Math.floor(Math.random()*5)+1, nums=Array.from({length:6},()=>Math.floor(Math.random()*10));
-  aWarmup(jo,nums);
-}
-function aWarmup(jo,nums){
-  // ── 1단계: 버튼 누른 후 6초 대기 (공 정지 상태) ──
-  document.getElementById('adLabel').textContent='추첨 준비 중';
-  document.getElementById('adStatus').textContent='버튼이 눌렸습니다. 기계 가동 대기 중...';
-  document.getElementById('adStatus').className='t-status on';
-  let e=0; const T1=6000;
-  const waitTick=()=>{
-    e+=100; document.getElementById('adBar').style.width=Math.min(e/T1*100,100)+'%';
-    document.getElementById('adSec').textContent=Math.ceil((T1-e)/1000)+'s';
-    if(e<T1){ aDrawT=setTimeout(waitTick,100); }
-    else {
-      // ── 2단계: 기계 가동 — 모든 공+조 동시 스피닝, 5초 후 첫 번호 확정 ──
-      document.getElementById('adLabel').textContent='기계 가동 중';
-      document.getElementById('adStatus').textContent='7개 기계 에어믹스 동시 작동 중...';
-      const joEl=document.getElementById('aDrawJo');
-      const balls=[]; for(let i=0;i<6;i++) balls.push(document.getElementById('ab'+i));
-      joEl.style.background='var(--gold)';
-      balls.forEach((b,i)=>{ b.classList.add('spinning'); b.style.background=A_COLORS[i]; b.style.color='#fff'; });
-      let e2=0; const T2=5000;
-      const activeTick=()=>{
-        e2+=100; document.getElementById('adBar').style.width=Math.min(e2/T2*100,100)+'%';
-        document.getElementById('adSec').textContent=Math.ceil((T2-e2)/1000)+'s';
-        joEl.textContent=(Math.floor(Math.random()*5)+1)+'조';
-        balls.forEach((b,i)=>{ b.textContent=Math.floor(Math.random()*10); b.style.background=A_COLORS[i]; });
-        if(e2<T2){ aDrawT=setTimeout(activeTick,100); }
-        else {
-          // 가동 완료 → 첫 번호 확정 시작
-          joEl.style.background='var(--text)'; joEl.textContent='?조';
-          balls.forEach((b,i)=>{ b.classList.remove('spinning'); b.textContent='?'; b.className='d-ball'; b.style.background=A_COLORS[i]; b.style.color='#fff'; });
-          document.getElementById('adStatus').textContent='기계 가동 완료! 일 자리 추첨 중...';
-          aDrawT=setTimeout(()=>aPhase(jo,nums,0),300);
-        }
-      };
-      aDrawT=setTimeout(activeTick,100);
-    }
-  };
-  aDrawT=setTimeout(waitTick,100);
-}
-// 연금복권 자리별 색상 (ab0=십만, ab1=만, ab2=천, ab3=백, ab4=십, ab5=일)
-const A_COLORS = ['#e06030','#c8920a','#c8c010','#3a82d6','#7b3fc4','#888'];
-// 추첨 순서: 일(5)→십(4)→백(3)→천(2)→만(1)→십만(0)→조(6)
-const A_ORDER = [5,4,3,2,1,0,6];
-const A_LABELS = ['일 자리','십 자리','백 자리','천 자리','만 자리','십만 자리','조 추첨'];
-
-// 연금복권 추첨 중 미확정 공 계속 스피닝 인터벌
-let aSpinInterval = null;
-function aStartBgSpin(confirmedSteps){
-  if(aSpinInterval) clearInterval(aSpinInterval);
-  const joEl=document.getElementById('aDrawJo');
-  const balls=[]; for(let i=0;i<6;i++) balls.push(document.getElementById('ab'+i));
-  // 확정된 인덱스 set (A_ORDER 기준 step으로 변환)
-  const confirmedIdx = new Set(confirmedSteps.map(s=>A_ORDER[s]));
-  aSpinInterval = setInterval(()=>{
-    // 미확정 숫자 공들
-    balls.forEach((b,i)=>{
-      if(!confirmedIdx.has(i)){
-        b.textContent=Math.floor(Math.random()*10);
-        b.style.background=A_COLORS[i]; b.style.color='#fff';
-      }
-    });
-    // 조 미확정이면 계속 돌리기
-    if(!confirmedIdx.has(6)){
-      joEl.textContent=(Math.floor(Math.random()*5)+1)+'조';
-      joEl.style.background='var(--gold)';
-    }
-  }, 100);
-}
-function aStopBgSpin(){ if(aSpinInterval){ clearInterval(aSpinInterval); aSpinInterval=null; } }
-
-function aPhase(jo,nums,step){
-  const idx=A_ORDER[step];
-  const isJo=idx===6;
-  document.getElementById('adLabel').textContent=A_LABELS[step];
-  document.getElementById('adStatus').textContent=(isJo?'조를 추첨 중...':A_LABELS[step]+' 추첨 중...');
-  document.getElementById('adStatus').className='t-status on';
-  const confirmedSteps=Array.from({length:step},(_,i)=>i);
-  aStartBgSpin(confirmedSteps);
-  let e=0; const T=7000; // 자리별 간격 7초
-  const tick=()=>{
-    e+=100; document.getElementById('adBar').style.width=Math.min(e/T*100,100)+'%';
-    document.getElementById('adSec').textContent=Math.ceil((T-e)/1000)+'s';
-    if(e<T) aDrawT=setTimeout(tick,100);
-    else {
-      // 이 자리 확정
-      aStopBgSpin();
-      if(isJo){
-        const joEl=document.getElementById('aDrawJo');
-        joEl.textContent=jo+'조'; joEl.className='draw-jo'; joEl.style.background='var(--text)';
-      } else {
-        const b=document.getElementById('ab'+idx);
-        b.classList.remove('spinning'); b.classList.add('done-ball');
-        b.textContent=nums[idx]; b.style.background=A_COLORS[idx]; b.style.color='#fff';
-      }
-      if(step<6) aDrawT=setTimeout(()=>aPhase(jo,nums,step+1),400);
-      else {
-        aStopBgSpin();
-        document.getElementById('adLabel').textContent='추첨 완료';
-        document.getElementById('adSec').textContent='';
-        document.getElementById('adStatus').textContent=`${jo}조  ${nums.join('')} — 추첨 완료`;
-        document.getElementById('aDrawBtn').disabled=false;
-        document.getElementById('aDrawBtn').textContent='▶ 다시 추첨';
-        aDrawRunning=false;
-      }
-    }
-  };
-  aDrawT=setTimeout(tick,100);
-}
-
-// 연금 자동생성 — 게임마다 예열(20초) + 추첨(3초×7) 풀 사이클
-let aAutoRunning=false, aAutoT=null;
-
-function aGetRank(myJo,myNum,winJo,winNum,bonusNum){
-  if(+myJo===winJo&&myNum===winNum) return {r:'1등',c:'var(--gold)'};
-  if(myNum===winNum) return {r:'2등',c:'var(--blue)'};
-  if(myNum===bonusNum) return {r:'보너스',c:'var(--orange)'};
-  for(let l=5;l>=1;l--){ if(myNum.slice(-l)===winNum.slice(-l)){const rm={5:'3등',4:'4등',3:'5등',2:'6등',1:'7등'};return {r:rm[l],c:l>=3?'var(--muted)':'var(--muted2)'}; } }
-  return {r:'낙첨',c:'var(--muted2)'};
-}
-
-function aSetAutoBtns(off){
-  ['aAutoBtn','aAutoBtn5','aAutoBtn10'].forEach(id=>{ const e=document.getElementById(id); if(e) e.disabled=off; });
-}
-
-function aResetMiniStage(){
-  const s=document.getElementById('aMiniStage'); s.innerHTML='';
-  // 숫자 자리 (십만~일), 색상 적용
-  for(let i=0;i<6;i++){
-    const wrap=document.createElement('div'); wrap.style.cssText='text-align:center;';
-    const b=document.createElement('div'); b.className='d-ball'; b.textContent='?';
-    b.id='amb'+i; b.style.background=A_COLORS[i]; b.style.color='#fff';
-    const lbl=document.createElement('div'); lbl.style.cssText='font-size:8px;color:var(--muted);margin-top:2px;';
-    lbl.textContent=['십만','만','천','백','십','일'][i];
-    wrap.appendChild(b); wrap.appendChild(lbl); s.appendChild(wrap);
-  }
-  const sep=document.createElement('span'); sep.className='sep'; sep.textContent='|'; sep.style.margin='0 4px'; s.appendChild(sep);
-  const joWrap=document.createElement('div'); joWrap.style.cssText='text-align:center;';
-  const jo=document.createElement('div'); jo.className='draw-jo'; jo.textContent='?조'; jo.id='aMiniJo'; jo.style.minWidth='44px';
-  const joLbl=document.createElement('div'); joLbl.style.cssText='font-size:8px;color:var(--muted);margin-top:2px;'; joLbl.textContent='조';
-  joWrap.appendChild(jo); joWrap.appendChild(joLbl); s.appendChild(joWrap);
-}
-
-function aStartAutoQueue(count){
-  if(aAutoRunning) return;
-  aAutoRunning=true;
-  aSetAutoBtns(true);
-  document.getElementById('aAutoOut').innerHTML='';
-  aResetMiniStage();
-  aRunAutoGame(count, 0, []);
-}
-
-function aRunAutoGame(total, cur, results){
-  if(cur >= total){
-    aAutoRunning=false; aSetAutoBtns(false);
-    document.getElementById('aAutoStatus').textContent=`✓ ${total}장 추첨 완료`;
-    aRenderAutoResults(results);
-    return;
-  }
-  const jo=Math.floor(Math.random()*5)+1;
-  const nums=Array.from({length:6},()=>Math.floor(Math.random()*10));
-  aResetMiniStage();
-  aAutoWarmup(cur, total, jo, nums, ()=>{
-    aAutoPhase(jo, nums, 0, ()=>{
-      results.push({jo, nums:[...nums]});
-      document.getElementById('aAutoStatus').textContent=`${cur+1}/${total} 완료 — ${jo}조 ${nums.join('')}`;
-      aAutoT=setTimeout(()=>aRunAutoGame(total, cur+1, results), 1500);
-    });
-  });
-}
-
-function aAutoWarmup(cur, total, jo, nums, onDone){
-  // 1단계: 6초 대기 (공 정지)
-  document.getElementById('aAutoStatus').textContent=`${cur+1}/${total} 장 — 추첨 준비 중...`;
-  const joEl=document.getElementById('aMiniJo');
-  const balls=[]; for(let i=0;i<6;i++) balls.push(document.getElementById('amb'+i));
-  let e=0; const T1=6000;
-  const waitTick=()=>{
-    e+=100;
-    document.getElementById('aAutoStatus').textContent=`${cur+1}/${total} 장 — 대기 중 ${Math.ceil((T1-e)/1000)}s`;
-    if(e<T1){ aAutoT=setTimeout(waitTick,100); }
-    else {
-      // 2단계: 기계 가동 — 조+공 동시 스피닝, 5초
-      document.getElementById('aAutoStatus').textContent=`${cur+1}/${total} 장 — 기계 가동 중...`;
-      joEl.style.background='var(--gold)';
-      balls.forEach((b,i)=>{ b.classList.add('spinning'); b.style.background=A_COLORS[i]; b.style.color='#fff'; });
-      let e2=0; const T2=5000;
-      const activeTick=()=>{
-        e2+=100;
-        document.getElementById('aAutoStatus').textContent=`${cur+1}/${total} 장 — 가동 중 ${Math.ceil((T2-e2)/1000)}s`;
-        joEl.textContent=(Math.floor(Math.random()*5)+1)+'조';
-        balls.forEach((b,i)=>{ b.textContent=Math.floor(Math.random()*10); b.style.background=A_COLORS[i]; });
-        if(e2<T2){ aAutoT=setTimeout(activeTick,100); }
-        else {
-          joEl.style.background='var(--text)'; joEl.textContent='?조';
-          balls.forEach((b,i)=>{ b.classList.remove('spinning'); b.textContent='?'; b.className='d-ball'; b.style.background=A_COLORS[i]; b.style.color='#fff'; });
-          document.getElementById('aAutoStatus').textContent=`${cur+1}/${total} 장 — 가동 완료! 추첨 시작`;
-          aAutoT=setTimeout(onDone,300);
-        }
-      };
-      aAutoT=setTimeout(activeTick,100);
-    }
-  };
-  aAutoT=setTimeout(waitTick,100);
-}
-
-function aAutoPhase(jo, nums, step, onDone){
-  const idx=A_ORDER[step];
-  const isJo=idx===6;
-  const confirmedSteps=Array.from({length:step},(_,i)=>i);
-  const confirmedIdx=new Set(confirmedSteps.map(s=>A_ORDER[s]));
-  const joEl=document.getElementById('aMiniJo');
-  const allBalls=[]; for(let i=0;i<6;i++) allBalls.push(document.getElementById('amb'+i));
-  if(aSpinInterval) clearInterval(aSpinInterval);
-  aSpinInterval=setInterval(()=>{
-    allBalls.forEach((b,i)=>{
-      if(!confirmedIdx.has(i)){ b.textContent=Math.floor(Math.random()*10); b.style.background=A_COLORS[i]; b.style.color='#fff'; }
-    });
-    if(!confirmedIdx.has(6)){ joEl.textContent=(Math.floor(Math.random()*5)+1)+'조'; joEl.style.background='var(--gold)'; }
-  },100);
-  let e=0; const T=7000; // 자리별 간격 7초
-  const tick=()=>{
-    e+=100;
-    if(e<T) aAutoT=setTimeout(tick,100);
-    else {
-      aStopBgSpin();
-      if(isJo){ joEl.textContent=jo+'조'; joEl.style.background='var(--text)'; }
-      else {
-        const b=document.getElementById('amb'+idx);
-        b.classList.remove('spinning'); b.classList.add('done-ball');
-        b.textContent=nums[idx]; b.style.background=A_COLORS[idx]; b.style.color='#fff';
-      }
-      if(step<6) aAutoT=setTimeout(()=>aAutoPhase(jo,nums,step+1,onDone),350);
-      else onDone();
-    }
-  };
-  aAutoT=setTimeout(tick,100);
-}
-
-function aRenderAutoResults(results){
-  const L=AALL[0], wrap=document.getElementById('aAutoOut'); wrap.innerHTML='';
-  results.forEach((g,i)=>{
-    const numsStr=g.nums.join('');
-    const rk=aGetRank(g.jo,numsStr,L.jo,L.win,L.bonus);
-    let numHtml=''; numsStr.split('').forEach((d,p)=>{numHtml+=`<span style="${d===L.win[p]?'color:var(--gold);font-weight:700;':''}">${d}</span>`;});
-    const div=document.createElement('div'); div.className='auto-ticket';
-    div.innerHTML=`<div class="at-label">${String.fromCharCode(65+i)}</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;background:var(--text);color:#fff;padding:3px 7px;flex-shrink:0;">${g.jo}조</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;letter-spacing:5px;flex:1;">${numHtml}</div>
-      <div class="at-result" style="color:${rk.c}">${rk.r}</div>`;
-    wrap.appendChild(div);
-  });
-  const info=document.createElement('div');
-  info.style.cssText='margin-top:8px;padding:8px;background:var(--bg);border:1px solid var(--border);font-size:11px;color:var(--muted);';
-  info.innerHTML=`기준: <strong>${L.round}회</strong> 1등 — <strong style="color:var(--gold)">${L.jo}조 ${L.win}</strong> · <span style="color:var(--gold);font-weight:700;">금색</span> = 자리별 일치`;
-  wrap.appendChild(info);
-}
-
-// 연금 과거
-function aSetHist(n,el){
-  document.querySelectorAll('#aHistTabs .ptab').forEach(t=>t.classList.remove('active')); el.classList.add('active');
-  const data=AALL.slice(0,n), L=AALL[0];
-  const joCnts=Array(6).fill(0); data.forEach(h=>joCnts[h.jo]++);
-  const topJo=joCnts.indexOf(Math.max(...joCnts.slice(1)));
-  document.getElementById('aHistSum').innerHTML=`<div class="sum-card"><div class="sum-val">${n}</div><div class="sum-label">표시 회차</div></div><div class="sum-card"><div class="sum-val">${data[data.length-1].round}회</div><div class="sum-label">시작 회차</div></div><div class="sum-card"><div class="sum-val">${topJo}조</div><div class="sum-label">최다 출현 조</div></div>`;
-  const list=document.getElementById('aHistList'); list.innerHTML='';
-  data.forEach(h=>{
-    const div=document.createElement('div'); div.className='hist-item';
-    div.innerHTML=`<div class="hi-round">${h.round}회</div><div class="hi-date">${h.date}</div><div class="hi-jo">${h.jo}조</div><div class="hi-nums">${h.win}</div><div class="hi-bonus">보너스<br>${h.bonus}</div>`;
-    list.appendChild(div);
-  });
-}
-
-// 연금 통계
-function aSetStat(n,el){
-  document.querySelectorAll('#aStatTabs .ptab').forEach(t=>t.classList.remove('active')); el.classList.add('active');
-  const data=AALL.slice(0,n);
-  const pos=Array.from({length:6},()=>Array(10).fill(0)), joCnt=Array(6).fill(0);
-  data.forEach(h=>{h.win.split('').forEach((d,i)=>pos[i][parseInt(d)]++);joCnt[h.jo]++;});
-  const maxJo=Math.max(...joCnt.slice(1));
-  const allD=Array(10).fill(0); pos.forEach(arr=>arr.forEach((c,d)=>allD[d]+=c));
-  const topD=allD.indexOf(Math.max(...allD)), coldD=allD.indexOf(Math.min(...allD));
-  document.getElementById('aStatSum').innerHTML=`<div class="sum-card"><div class="sum-val">${n}회</div><div class="sum-label">분석 범위</div></div><div class="sum-card"><div class="sum-val">${topD}</div><div class="sum-label">많이 나온 숫자 (${allD[topD]}회)</div></div><div class="sum-card"><div class="sum-val">${coldD}</div><div class="sum-label">적게 나온 숫자 (${allD[coldD]}회)</div></div>`;
-  document.getElementById('aStatPosLabel').textContent=`자리별 숫자 출현 빈도 — 최근 ${n}회`;
-  const container=document.getElementById('aStatPos'); container.innerHTML='';
-  pos.forEach((arr,pi)=>{
-    const max=Math.max(...arr,1), sIdx=[...arr.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
-    const div=document.createElement('div'); div.className='pos-section';
-    let bh='<div class="digit-bars">';
-    arr.forEach((cnt,d)=>{ const h=Math.round((cnt/max)*56), rank=sIdx.indexOf(d); const cls=rank===0?'top-bar':rank<=2?'mid-bar':'low-bar'; bh+=`<div class="digit-col"><div class="digit-cnt">${cnt||''}</div><div class="digit-fill ${cls}" style="height:${h}px"></div><div class="digit-num">${d}</div></div>`; });
-    bh+='</div>'; div.innerHTML=`<div class="pos-label">${pi+1}번째 자리</div>${bh}`; container.appendChild(div);
-  });
-  const joRow=document.getElementById('aJoStat'); joRow.innerHTML='';
-  for(let j=1;j<=5;j++){const d=document.createElement('div');d.className='jo-stat-item'+(joCnt[j]===maxJo?' top-jo':'');d.innerHTML=`<div class="jo-n">${j}조</div><div class="jo-c">${joCnt[j]}회</div>`;joRow.appendChild(d);}
-}
-
-// ===== 수동 업데이트 =====
-function openUpdate(){ document.getElementById('updateModal').classList.add('open'); }
-function closeUpdate(){ document.getElementById('updateModal').classList.remove('open'); document.getElementById('updateResult').style.display='none'; }
-function showResult(msg, ok){
-  const el=document.getElementById('updateResult');
-  el.textContent=msg; el.className='update-result '+(ok?'ok':'err'); el.style.display='block';
-}
-
-function addLottoData(){
-  const round=parseInt(document.getElementById('uLottoRound').value);
-  const date=document.getElementById('uLottoDate').value.trim();
-  const numsStr=document.getElementById('uLottoNums').value.trim();
-  const bonus=parseInt(document.getElementById('uLottoBonus').value);
-  if(!round||!date||!numsStr||!bonus){ showResult('모든 항목을 입력해주세요',false); return; }
-  const nums=numsStr.split(',').map(s=>parseInt(s.trim())).filter(n=>n>=1&&n<=45);
-  if(nums.length!==6){ showResult('당첨번호 6개를 쉼표로 구분해 입력하세요 (예: 1,7,15,22,33,44)',false); return; }
-  if(LALL.find(h=>h.round===round)){ showResult(`${round}회 데이터가 이미 존재합니다`,false); return; }
-  nums.sort((a,b)=>a-b);
-  LALL.unshift({round,nums,bonus,date});
-  LALL.sort((a,b)=>b.round-a.round);
-  LLATEST=LALL[0];
-  document.getElementById('lottoHeader').innerHTML=`최신 <strong>${LLATEST.round}회</strong> · ${LLATEST.date} · 매주 토요일 20:35 MBC`;
-  showResult(`✓ 로또 ${round}회 (${date}) 추가 완료 — ${nums.join(', ')} + 보너스 ${bonus}`, true);
-  document.getElementById('uLottoRound').value=''; document.getElementById('uLottoDate').value=''; document.getElementById('uLottoNums').value=''; document.getElementById('uLottoBonus').value='';
-}
-
-function addAnnuityData(){
-  const round=parseInt(document.getElementById('uAnRound').value);
-  const date=document.getElementById('uAnDate').value.trim();
-  const jo=parseInt(document.getElementById('uAnJo').value);
-  const win=document.getElementById('uAnWin').value.trim().replace(/\s/g,'');
-  const bonus=document.getElementById('uAnBonus').value.trim().replace(/\s/g,'');
-  if(!round||!date||!win||!bonus){ showResult('모든 항목을 입력해주세요',false); return; }
-  if(win.length!==6||!/^\d+$/.test(win)){ showResult('1등 번호는 숫자 6자리여야 합니다 (예: 123456)',false); return; }
-  if(bonus.length!==6||!/^\d+$/.test(bonus)){ showResult('보너스 번호는 숫자 6자리여야 합니다',false); return; }
-  if(AALL.find(h=>h.round===round)){ showResult(`${round}회 데이터가 이미 존재합니다`,false); return; }
-  AALL.unshift({round,jo,win,bonus,date});
-  AALL.sort((a,b)=>b.round-a.round);
-  document.getElementById('aLatestInfo').textContent=`${AALL[0].round}회`;
-  showResult(`✓ 연금복권 ${round}회 (${date}) 추가 완료 — ${jo}조 ${win} / 보너스 ${bonus}`, true);
-  document.getElementById('uAnRound').value=''; document.getElementById('uAnDate').value=''; document.getElementById('uAnWin').value=''; document.getElementById('uAnBonus').value='';
-}
-
-// ===== 초기화 =====
-aSetHist(10, document.querySelector('#aHistTabs .ptab'));
-aSetStat(10, document.querySelector('#aStatTabs .ptab'));
-
-// ========================================
-// 비너스 추첨기
-// ========================================
-let vInitDone=false, vCurrentMachine=1, vVenusAF=null;
-let vLBalls=[], vLRunning=false, vLDrawT=null, vLSpinInt=null, vLConfirmed=new Set(), vLExtracted=[];
-let vABallSets=[], vACanvases=[], vACtxs=[], vAConfirmed=new Set(), vAExtracted={};
-let vARunning=false, vADrawT=null, vASpinInt=null, vCurrentVenus='lotto';
-
-const V_TRAITS={
-  1:'<strong style="color:#e8e6f0">1호기</strong> — 이월수 3~4주 연속 多, 동끝수 1~2개 동시출현, 구간몰림 심함(한 번호대 3개↑), 연번·3연번 자주.',
-  2:'<strong style="color:#e8e6f0">2호기</strong> — 일명 꼴통기계. 대각이웃수 이월수 자주, 단번대·10번대 멸 없음, 1궁(1·10·19·28·37)·9궁(9·18·27·36·45) 강함.',
-  3:'<strong style="color:#e8e6f0">3호기</strong> — 연번·3연번 자주(최근 한달 연속 기록), 구간몰림 있으나 멸구간 적어 번호 골고루 분포.'
-};
-const VA_COLORS=['#e06030','#c8920a','#b8b010','#3a82d6','#7b3fc4','#606060','#c8282a'];
-const VA_PLACES=['십만','만','천','백','십','일','조'];
-const VA_ORDER=[5,4,3,2,1,0,6];
-const VA_T_BTN=6000, VA_T_FIRST=5000, VA_T_INTER=7000;
-const VL_T_BTN=7000, VL_T_FIRST=6000, VL_T_INTER=6000;
-
-function vLighten(hex,a){let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgb(${Math.min(255,r+a)},${Math.min(255,g+a)},${Math.min(255,b+a)})`;}
-function vDarken(hex,a){let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgb(${Math.max(0,r-a)},${Math.max(0,g-a)},${Math.max(0,b-a)})`;}
-function vRR(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
-
-function vBchex(n){return n<=10?'#e6a817':n<=20?'#3a82d6':n<=30?'#d63030':n<=40?'#64686e':'#2a8f52';}
-
-// 비너스 진입
-function initVenus(){
-  vInitDone=true;
-  vSelectMachine(1);
-  vLInitBalls();
-  vABuildUI();
-  vStartAnimation();
-}
-function switchVenus(name){
-  vCurrentVenus=name;
-  document.getElementById('vView-lotto').style.display=name==='lotto'?'block':'none';
-  document.getElementById('vView-annuity').style.display=name==='annuity'?'block':'none';
-  document.getElementById('vTab1').style.cssText=name==='lotto'?'flex:1;padding:12px 6px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;background:#1e2028;color:#e8e6f0;border-right:1px solid #2a2d3a;':'flex:1;padding:12px 6px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;background:#161820;color:#8884a0;border-right:1px solid #2a2d3a;';
-  document.getElementById('vTab2').style.cssText=name==='annuity'?'flex:1;padding:12px 6px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;background:#1e2028;color:#e8e6f0;':'flex:1;padding:12px 6px;text-align:center;font-size:12px;font-weight:700;cursor:pointer;background:#161820;color:#8884a0;';
-}
-function vSelectMachine(n){
-  vCurrentMachine=n;
-  [1,2,3].forEach(i=>{
-    const el=document.getElementById('vm'+i);
-    if(!el) return;
-    const ac=['#20b8c4','#e06030','#2a8f52'][i-1];
-    if(i===n){el.style.border=`1px solid ${ac}`;el.style.background='#1e2028';el.style.color='#e8e6f0';}
-    else{el.style.border='1px solid #2a2d3a';el.style.background='#161820';el.style.color='#8884a0';}
-  });
-  const t=document.getElementById('vTrait'); if(t) t.innerHTML=V_TRAITS[n];
-  const ml=document.getElementById('vLmachine'); if(ml) ml.textContent=n+'호기';
-}
-
-// ── 로또 비너스 공 물리 ──
-function vLInitBalls(){
-  vLBalls=[];
-  const cx=140,cy=230,r=72;
-  for(let i=1;i<=45;i++){
-    const a=Math.random()*Math.PI*2,d=Math.random()*r*0.75;
-    vLBalls.push({n:i,x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d,vx:(Math.random()-.5)*2.5,vy:(Math.random()-.5)*2.5,r:8,ext:false,color:vBchex(i)});
-  }
-}
-function vLUpdateBalls(){
-  const cx=140,cy=230,cr=74;
-  vLBalls.forEach(b=>{
-    if(b.ext) return;
-    if(vLRunning){
-      const a=Math.atan2(b.y-cy,b.x-cx);
-      b.vx+=(-Math.sin(a)*1.1+(Math.random()-.5)*.9);
-      b.vy+=(Math.cos(a)*1.1+(Math.random()-.5)*.9-.04);
-    }
-    b.vx*=.93;b.vy*=.93;b.x+=b.vx;b.y+=b.vy;
-    const dx=b.x-cx,dy=b.y-cy,d=Math.sqrt(dx*dx+dy*dy);
-    if(d>cr-b.r){const nx=dx/d,ny=dy/d;b.x=cx+nx*(cr-b.r);b.y=cy+ny*(cr-b.r);const dot=b.vx*nx+b.vy*ny;b.vx-=2*dot*nx*.65;b.vy-=2*dot*ny*.65;}
-    vLBalls.forEach(b2=>{if(b===b2||b2.ext)return;const dx2=b.x-b2.x,dy2=b.y-b2.y,dd=Math.sqrt(dx2*dx2+dy2*dy2);if(dd<b.r+b2.r+.5){const nx2=dx2/dd,ny2=dy2/dd,ov=(b.r+b2.r+.5-dd)/2;b.x+=nx2*ov;b.y+=ny2*ov;b2.x-=nx2*ov;b2.y-=ny2*ov;const dot2=(b.vx-b2.vx)*nx2+(b.vy-b2.vy)*ny2;b.vx-=dot2*nx2*.45;b.vy-=dot2*ny2*.45;b2.vx+=dot2*nx2*.45;b2.vy+=dot2*ny2*.45;}});
-  });
-}
-
-// ── 로또 비너스 그리기 ──
-function vLDraw(){
-  const cv=document.getElementById('vLottoCanvas');
-  if(!cv) return;
-  const c=cv.getContext('2d'), W=280,H=480, cx=140,cy=230,cr=85;
-  c.clearRect(0,0,W,H);
-  const ac=vCurrentMachine===1?'#20b8c4':vCurrentMachine===2?'#e06030':'#2a8f52';
-
-  // 베이스
-  c.fillStyle='#1a1c24'; vRR(c,10,380,260,90,7); c.fill();
-  c.strokeStyle='#2a2d3a'; c.lineWidth=1; vRR(c,10,380,260,90,7); c.stroke();
-  c.fillStyle='#252830'; vRR(c,18,388,244,72,5); c.fill();
-  c.fillStyle='#0e0f14'; vRR(c,34,396,212,30,3); c.fill();
-  c.strokeStyle=ac+'55'; c.lineWidth=1; vRR(c,34,396,212,30,3); c.stroke();
-  c.fillStyle=ac; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
-  c.fillText(`VENUS — ${vCurrentMachine}호기`, 140,411);
-  c.fillStyle='#5a5870'; c.font='8px IBM Plex Mono'; c.fillText('EDITEC S.A. FRANCE',140,424);
-  [70,140,210].forEach((bx,i)=>{c.fillStyle='#2a2d3a';c.beginPath();c.arc(bx,454,8,0,Math.PI*2);c.fill();c.strokeStyle=i===0?ac:'#3a3d4e';c.lineWidth=1.5;c.beginPath();c.arc(bx,454,8,0,Math.PI*2);c.stroke();if(i===0){c.fillStyle=ac;c.beginPath();c.arc(bx,454,4,0,Math.PI*2);c.fill();}});
-
-  // 기둥
-  const pg=c.createLinearGradient(10,0,46,0);pg.addColorStop(0,'#1a1c24');pg.addColorStop(.5,'#252830');pg.addColorStop(1,'#1a1c24');
-  c.fillStyle=pg;c.fillRect(10,105,34,278);c.fillRect(236,105,34,278);
-
-  // 상단 프레임
-  c.fillStyle='#252830';vRR(c,10,88,260,24,4);c.fill();
-  c.strokeStyle='#3a3d4e';c.lineWidth=1;vRR(c,10,88,260,24,4);c.stroke();
-  c.fillStyle='#141620';vRR(c,96,68,88,26,3);c.fill();
-  c.strokeStyle=ac;c.lineWidth=1.5;vRR(c,96,68,88,26,3);c.stroke();
-  c.fillStyle='#5a5870';c.font='8px IBM Plex Mono';c.textAlign='center';c.fillText('BALL EXIT',140,81);
-
-  // 배출 튜브
-  c.strokeStyle='#2a2d3a';c.lineWidth=2.5;
-  c.beginPath();c.moveTo(128,68);c.lineTo(128,14);c.stroke();
-  c.beginPath();c.moveTo(152,68);c.lineTo(152,14);c.stroke();
-  c.beginPath();c.moveTo(128,14);c.lineTo(152,14);c.stroke();
-
-  // 추출 공 표시
-  vLExtracted.forEach((b,i)=>{
-    const ex=112+i*18,ey=9;
-    const bg=c.createRadialGradient(ex-1,ey-1,1,ex,ey,6);
-    bg.addColorStop(0,vLighten(b.color,50));bg.addColorStop(1,b.color);
-    c.fillStyle=bg;c.beginPath();c.arc(ex,ey,6,0,Math.PI*2);c.fill();
-    c.fillStyle='#fff';c.font='bold 6px IBM Plex Mono';c.textAlign='center';c.textBaseline='middle';c.fillText(b.n,ex,ey);c.textBaseline='alphabetic';
-  });
-
-  // 챔버
-  const og=c.createRadialGradient(cx-15,cy-25,cr*.3,cx,cy,cr);
-  og.addColorStop(0,`${ac}12`);og.addColorStop(1,'rgba(0,0,0,0)');
-  c.fillStyle=og;c.beginPath();c.arc(cx,cy,cr+5,0,Math.PI*2);c.fill();
-  const cg=c.createRadialGradient(cx-20,cy-25,8,cx,cy,cr);
-  cg.addColorStop(0,'rgba(38,42,58,.97)');cg.addColorStop(.75,'rgba(18,20,28,.97)');cg.addColorStop(1,'rgba(12,13,18,.99)');
-  c.fillStyle=cg;c.beginPath();c.arc(cx,cy,cr,0,Math.PI*2);c.fill();
-
-  // 바람 흐름
-  if(vLRunning){
-    const t=Date.now()/200;
-    c.strokeStyle=`${ac}18`;c.lineWidth=1;
-    for(let i=0;i<5;i++){const a=(t+i*72)*Math.PI/180;c.beginPath();c.moveTo(cx+Math.cos(a)*18,cy+Math.sin(a)*18);c.quadraticCurveTo(cx+Math.cos(a+.8)*(cr*.6),cy+Math.sin(a+.8)*(cr*.6),cx+Math.cos(a+1.1)*(cr*.5),cy+Math.sin(a+1.1)*(cr*.5));c.stroke();}
-  }
-
-  // 공 렌더
-  vLBalls.forEach(b=>{
-    if(b.ext) return;
-    c.save();c.shadowColor='rgba(0,0,0,.5)';c.shadowBlur=3;
-    const bg=c.createRadialGradient(b.x-2,b.y-2,1,b.x,b.y,b.r);
-    bg.addColorStop(0,vLighten(b.color,40));bg.addColorStop(.6,b.color);bg.addColorStop(1,vDarken(b.color,25));
-    c.fillStyle=bg;c.beginPath();c.arc(b.x,b.y,b.r,0,Math.PI*2);c.fill();c.restore();
-    c.fillStyle='rgba(255,255,255,.9)';c.font='bold 7px IBM Plex Mono';c.textAlign='center';c.textBaseline='middle';
-    c.fillText(b.n,b.x,b.y);c.textBaseline='alphabetic';
-  });
-
-  // 드럼링
-  const dy2=cy-cr+12;
-  c.strokeStyle='#3a3d4e55';c.lineWidth=2;c.beginPath();c.ellipse(cx,dy2,48,10,0,0,Math.PI*2);c.stroke();
-  if(vLRunning){const t=Date.now()/95;for(let i=0;i<4;i++){const a=(t+i*90)*Math.PI/180;c.fillStyle=ac+'66';c.beginPath();c.arc(cx+Math.cos(a)*46,dy2+Math.sin(a)*9,2.5,0,Math.PI*2);c.fill();}}
-
-  // 챔버 마감
-  c.strokeStyle='#1e202888';c.lineWidth=4;c.beginPath();c.arc(cx,cy,cr,0,Math.PI*2);c.stroke();
-  c.strokeStyle='#3a3d4e66';c.lineWidth=1.5;c.beginPath();c.arc(cx,cy,cr,0,Math.PI*2);c.stroke();
-  c.strokeStyle='rgba(255,255,255,.05)';c.lineWidth=1.5;c.beginPath();c.arc(cx-8,cy-8,cr*.82,Math.PI*1.15,Math.PI*1.65);c.stroke();
-  c.strokeStyle=ac+'33';c.lineWidth=1;vRR(c,44,105,192,278,5);c.stroke();
-}
-
-// ── 연금복권 비너스 UI ──
-function vABuildUI(){
-  const row=document.getElementById('vAMachines');
-  if(!row) return;
-  row.innerHTML='';vACanvases=[];vACtxs=[];vABallSets=[];
-  VA_PLACES.forEach((pl,pi)=>{
-    const unit=document.createElement('div');unit.style.cssText='display:flex;flex-direction:column;align-items:center;flex-shrink:0;';
-    const lbl=document.createElement('div');lbl.style.cssText=`font-size:9px;color:${VA_COLORS[pi]};letter-spacing:1px;margin-bottom:4px;font-weight:700;`;lbl.textContent=pl;
-    const cv=document.createElement('canvas');cv.width=90;cv.height=175;cv.id='vamc'+pi;
-    unit.appendChild(lbl);unit.appendChild(cv);row.appendChild(unit);
-    vACanvases.push(cv);vACtxs.push(cv.getContext('2d'));
-    // 0~9 공 10개
-    const balls=[];
-    for(let d=0;d<=9;d++){const a=Math.random()*Math.PI*2,dist=Math.random()*28*.7;balls.push({d,x:45+Math.cos(a)*dist,y:82+Math.sin(a)*dist,vx:(Math.random()-.5)*1.8,vy:(Math.random()-.5)*1.8,br:6.5});}
-    vABallSets.push(balls);
-  });
-  vABuildResult();
-}
-function vABuildResult(){
-  const row=document.getElementById('vAResult');if(!row) return;row.innerHTML='';
-  [0,1,2,3,4,5].forEach(pi=>{
-    const u=document.createElement('div');u.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
-    const b=document.createElement('div');b.id='var'+pi;
-    b.style.cssText=`width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;color:#fff;border:2px solid #2a2d3a;background:${VA_COLORS[pi]};`;
-    b.textContent='?';
-    const l=document.createElement('div');l.style.cssText='font-size:9px;color:#5a5870;';l.textContent=VA_PLACES[pi];
-    u.appendChild(b);u.appendChild(l);row.appendChild(u);
-  });
-  const sep=document.createElement('span');sep.textContent='|';sep.style.cssText='font-size:18px;color:#2a2d3a;margin:0 4px;';row.appendChild(sep);
-  const ju=document.createElement('div');ju.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
-  const jb=document.createElement('div');jb.id='varjo';
-  jb.style.cssText=`font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;background:${VA_COLORS[6]};color:#fff;padding:5px 9px;min-width:46px;text-align:center;border:2px solid #2a2d3a;`;
-  jb.textContent='?조';
-  const jl=document.createElement('div');jl.style.cssText='font-size:9px;color:#5a5870;';jl.textContent='조';
-  ju.appendChild(jb);ju.appendChild(jl);row.appendChild(ju);
-}
-
-// 연금 공 물리
-function vAUpdateUnit(pi){
-  const balls=vABallSets[pi],cx=45,cy=82,cr=26;
-  balls.forEach(b=>{
-    if(vARunning&&!vAConfirmed.has(pi)){const a=Math.atan2(b.y-cy,b.x-cx);b.vx+=(-Math.sin(a)*.9+(Math.random()-.5)*.7);b.vy+=(Math.cos(a)*.9+(Math.random()-.5)*.7-.03);}
-    b.vx*=.93;b.vy*=.93;b.x+=b.vx;b.y+=b.vy;
-    const dx=b.x-cx,dy=b.y-cy,d=Math.sqrt(dx*dx+dy*dy);
-    if(d>cr-b.br){const nx=dx/d,ny=dy/d;b.x=cx+nx*(cr-b.br);b.y=cy+ny*(cr-b.br);const dot=b.vx*nx+b.vy*ny;b.vx-=2*dot*nx*.6;b.vy-=2*dot*ny*.6;}
-    balls.forEach(b2=>{if(b===b2)return;const dx2=b.x-b2.x,dy2=b.y-b2.y,dd=Math.sqrt(dx2*dx2+dy2*dy2);if(dd<b.br+b2.br+.3){const nx2=dx2/dd,ny2=dy2/dd,ov=(b.br+b2.br+.3-dd)/2;b.x+=nx2*ov;b.y+=ny2*ov;b2.x-=nx2*ov;b2.y-=ny2*ov;const dot2=(b.vx-b2.vx)*nx2+(b.vy-b2.vy)*ny2;b.vx-=dot2*nx2*.4;b.vy-=dot2*ny2*.4;b2.vx+=dot2*nx2*.4;b2.vy+=dot2*ny2*.4;}});
-  });
-}
-
-// 연금 기계 1개 그리기
-function vADrawUnit(pi){
-  const c=vACtxs[pi];if(!c) return;
-  const W=90,H=175,cx=45,cy=82,cr=32,col=VA_COLORS[pi],pl=VA_PLACES[pi];
-  c.clearRect(0,0,W,H);
-  // 배출 튜브
-  c.strokeStyle='#2a2d3a';c.lineWidth=2;c.beginPath();c.moveTo(38,8);c.lineTo(38,22);c.stroke();c.beginPath();c.moveTo(52,8);c.lineTo(52,22);c.stroke();c.beginPath();c.moveTo(38,8);c.lineTo(52,8);c.stroke();
-  // 추출 공
-  if(vAExtracted[pi]!==undefined){const eg=c.createRadialGradient(45-1,7-1,1,45,7,6);eg.addColorStop(0,vLighten(col,50));eg.addColorStop(1,col);c.fillStyle=eg;c.beginPath();c.arc(45,7,6,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font='bold 7px IBM Plex Mono';c.textAlign='center';c.textBaseline='middle';c.fillText(vAExtracted[pi],45,7);c.textBaseline='alphabetic';}
-  // 상단 캡
-  c.fillStyle='#1a1c24';vRR(c,27,20,36,9,2);c.fill();c.strokeStyle=col+'66';c.lineWidth=.8;vRR(c,27,20,36,9,2);c.stroke();
-  // 챔버
-  const cg=c.createRadialGradient(cx-7,cy-9,4,cx,cy,cr);cg.addColorStop(0,'rgba(35,38,52,.97)');cg.addColorStop(.8,'rgba(18,20,28,.97)');cg.addColorStop(1,'rgba(12,13,18,.99)');
-  c.fillStyle=cg;c.beginPath();c.arc(cx,cy,cr,0,Math.PI*2);c.fill();
-  c.strokeStyle='#2a2d3a';c.lineWidth=2;c.beginPath();c.arc(cx,cy,cr,0,Math.PI*2);c.stroke();
-  c.strokeStyle=col+'44';c.lineWidth=1;c.beginPath();c.arc(cx,cy,cr,0,Math.PI*2);c.stroke();
-  // 바람
-  if(vARunning&&!vAConfirmed.has(pi)){const t=Date.now()/180;c.strokeStyle=col+'22';c.lineWidth=1;for(let i=0;i<3;i++){const a=(t+i*120)*Math.PI/180;c.beginPath();c.moveTo(cx+Math.cos(a)*7,cy+Math.sin(a)*7);c.quadraticCurveTo(cx+Math.cos(a+.7)*(cr*.55),cy+Math.sin(a+.7)*(cr*.55),cx+Math.cos(a+1.1)*(cr*.45),cy+Math.sin(a+1.1)*(cr*.45));c.stroke();}}
-  // 공
-  vABallSets[pi].forEach(b=>{
-    const bg=c.createRadialGradient(b.x-1,b.y-1,1,b.x,b.y,b.br);bg.addColorStop(0,vLighten(col,50));bg.addColorStop(.6,col);bg.addColorStop(1,vDarken(col,20));
-    c.fillStyle=bg;c.beginPath();c.arc(b.x,b.y,b.br,0,Math.PI*2);c.fill();
-    c.fillStyle='rgba(255,255,255,.9)';c.font='bold 7px IBM Plex Mono';c.textAlign='center';c.textBaseline='middle';c.fillText(b.d,b.x,b.y);c.textBaseline='alphabetic';
-  });
-  // 드럼링
-  const dly=cy-cr+6;
-  if(vARunning&&!vAConfirmed.has(pi)){const t=Date.now()/90;for(let i=0;i<4;i++){const a=(t+i*90)*Math.PI/180;c.fillStyle=col+'77';c.beginPath();c.arc(cx+Math.cos(a)*27,dly+Math.sin(a)*4.5,2,0,Math.PI*2);c.fill();}}
-  c.strokeStyle='#3a3d4e44';c.lineWidth=1.2;c.beginPath();c.ellipse(cx,dly,27,4.5,0,0,Math.PI*2);c.stroke();
-  // 챔버 마감
-  c.strokeStyle='#1e202888';c.lineWidth=3.5;c.beginPath();c.arc(cx,cy,cr,0,Math.PI*2);c.stroke();
-  c.strokeStyle='rgba(255,255,255,.04)';c.lineWidth=1;c.beginPath();c.arc(cx-4,cy-4,cr*.8,Math.PI*1.15,Math.PI*1.65);c.stroke();
-  // 베이스
-  c.fillStyle='#1a1c24';vRR(c,8,118,74,45,4);c.fill();c.strokeStyle='#2a2d3a';c.lineWidth=1;vRR(c,8,118,74,45,4);c.stroke();
-  c.fillStyle='#0e0f14';vRR(c,13,123,64,20,2);c.fill();c.strokeStyle=col+'44';c.lineWidth=.8;vRR(c,13,123,64,20,2);c.stroke();
-  c.fillStyle=col;c.font='bold 8px IBM Plex Mono';c.textAlign='center';c.fillText(pl,45,137);
-  c.fillStyle='#252830';c.beginPath();c.arc(45,153,6,0,Math.PI*2);c.fill();
-  c.strokeStyle=vARunning&&!vAConfirmed.has(pi)?col:'#3a3d4e';c.lineWidth=1.2;c.beginPath();c.arc(45,153,6,0,Math.PI*2);c.stroke();
-  if(vARunning&&!vAConfirmed.has(pi)){c.fillStyle=col+'88';c.beginPath();c.arc(45,153,2.5,0,Math.PI*2);c.fill();}
-}
-
-// 통합 애니메이션 루프
-function vStartAnimation(){
-  if(vVenusAF) cancelAnimationFrame(vVenusAF);
-  function loop(){
-    const vw=document.getElementById('view-venus');
-    if(vw&&vw.classList.contains('active')){
-      vLUpdateBalls(); vLDraw();
-      VA_PLACES.forEach((_,pi)=>{ vAUpdateUnit(pi); vADrawUnit(pi); });
-    }
-    vVenusAF=requestAnimationFrame(loop);
-  }
-  loop();
-}
-
-// ── 로또 비너스 추첨 ──
-function vLReset(){
-  if(vLDrawT) clearTimeout(vLDrawT);
-  if(vLSpinInt) clearInterval(vLSpinInt);
-  vLRunning=false;vLConfirmed=new Set();vLExtracted=[];
-  const sb=document.getElementById('vLstartBtn');if(sb){sb.disabled=false;sb.textContent='▶ 추첨';}
-  ['vLbar','vLlabel','vLsec','vLstatus'].forEach(id=>{const e=document.getElementById(id);if(!e) return;if(id==='vLbar')e.style.width='0%';else if(id==='vLlabel')e.textContent='대기 중';else e.textContent='';});
-  const dl=document.getElementById('vLdot');if(dl) dl.style.background='#5a5870';
-  const sl=document.getElementById('vLstat');if(sl){sl.textContent='대기 중';sl.style.color='#8884a0';}
-  const rb=document.getElementById('vLballs');
-  if(rb){rb.innerHTML='';for(let i=0;i<6;i++){const b=document.createElement('div');b.style.cssText='width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:700;color:#5a5870;background:#1e2028;border:2px dashed #2a2d3a;flex-shrink:0;';b.textContent='?';rb.appendChild(b);}const pl=document.createElement('span');pl.style.cssText='font-size:12px;color:#2a2d3a;margin:0 2px;';pl.textContent='+';rb.appendChild(pl);const bn=document.createElement('div');bn.style.cssText='width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:700;color:#5a5870;background:#1e2028;border:2px dashed #2a2d3a;flex-shrink:0;opacity:.5;';bn.textContent='?';rb.appendChild(bn);}
-  vLInitBalls();
-}
-function vLStartDraw(){
-  if(vLRunning) return;
-  vLRunning=true;
-  const sb=document.getElementById('vLstartBtn');if(sb) sb.disabled=true;
-  const dl=document.getElementById('vLdot');if(dl){dl.style.background='#c8920a';dl.style.boxShadow='0 0 6px #c8920a';}
-  const sl=document.getElementById('vLstat');if(sl){sl.textContent='준비 중';sl.style.color='#c8920a';}
-  const pool=Array.from({length:45},(_,i)=>i+1),nums=[];
-  while(nums.length<6){const i=Math.floor(Math.random()*pool.length);nums.push(pool.splice(i,1)[0]);}
-  const bp=Array.from({length:45},(_,i)=>i+1).filter(n=>!nums.includes(n));
-  const bonus=bp[Math.floor(Math.random()*bp.length)];
-  vLStartResultSpin();
-  vLSetLabel('추첨 준비','버튼이 눌렸습니다. 기계 가동 대기...');
-  vTimerRun('vL',VL_T_BTN,()=>{
-    const sl=document.getElementById('vLstat');if(sl){sl.textContent='가동 중';sl.style.color='#20b8c4';}
-    vLSetLabel('기계 가동 중','에어믹스 작동 — 73~80m/s 바람으로 볼 혼합 중...');
-    vTimerRun('vL',VL_T_FIRST,()=>vLConfirmBall(nums,bonus,0));
-  });
-}
-function vLStartResultSpin(){
-  if(vLSpinInt) clearInterval(vLSpinInt);
-  const rb=document.getElementById('vLballs');if(!rb) return;
-  const balls=rb.querySelectorAll('div');
-  vLSpinInt=setInterval(()=>{
-    balls.forEach((b,i)=>{if(vLConfirmed.has(i)) return;const r=Math.floor(Math.random()*45)+1;b.textContent=r<10?'0'+r:r;b.style.background=vBchex(r);b.style.color='#fff';b.style.borderColor='transparent';});
-  },100);
-}
-function vLConfirmBall(nums,bonus,idx){
-  const isB=idx===6,val=isB?bonus:nums[idx];
-  vLConfirmed.add(isB?6:idx);
-  const rb=document.getElementById('vLballs');
-  if(rb){const balls=rb.querySelectorAll('div');const t=balls[isB?6:idx];if(t){t.textContent=val<10?'0'+val:val;t.style.background=vBchex(val);t.style.color='#fff';t.style.borderColor='transparent';t.style.animation='rbc .3s ease';}}
-  vLExtracted.push({n:val,color:vBchex(val)});
-  const bi=vLBalls.findIndex(b=>b.n===val&&!b.ext);if(bi>=0) vLBalls[bi].ext=true;
-  vLSetLabel(['1번째','2번째','3번째','4번째','5번째','6번째','보너스'][idx]+' 확정',`${val}번 공이 드럼링에 잡혔습니다!`);
-  if(idx<6) vTimerRun('vL',VL_T_INTER,()=>vLConfirmBall(nums,bonus,idx+1));
-  else {
-    if(vLSpinInt) clearInterval(vLSpinInt);
-    vLRunning=false;
-    const sorted=[...nums].sort((a,b)=>a-b);
-    vLSetLabel('추첨 완료',`당첨번호: ${sorted.join('  ')}  +  보너스 ${bonus}`);
-    const sl=document.getElementById('vLstat');if(sl){sl.textContent='완료';sl.style.color='#2a8f52';}
-    const sb=document.getElementById('vLstartBtn');if(sb){sb.disabled=false;sb.textContent='▶ 다시 추첨';}
-  }
-}
-function vLSetLabel(label,status){
-  const l=document.getElementById('vLlabel');if(l) l.textContent=label;
-  const s=document.getElementById('vLstatus');if(s){s.textContent=status;s.style.color='#20b8c4';}
-}
-
-// ── 연금복권 비너스 추첨 ──
-function vAReset(){
-  if(vADrawT) clearTimeout(vADrawT);
-  if(vASpinInt) clearInterval(vASpinInt);
-  vARunning=false;vAConfirmed=new Set();vAExtracted={};
-  const sb=document.getElementById('vAstartBtn');if(sb){sb.disabled=false;sb.textContent='▶ 추첨';}
-  ['vAbar','vAlabel','vAsec','vAstatus'].forEach(id=>{const e=document.getElementById(id);if(!e) return;if(id==='vAbar')e.style.width='0%';else if(id==='vAlabel')e.textContent='대기 중';else e.textContent='';});
-  VA_PLACES.forEach((pl,pi)=>{
-    if(pi===6){const e=document.getElementById('varjo');if(e){e.textContent='?조';e.style.background=VA_COLORS[6];e.style.borderColor='#2a2d3a';}}
-    else{const e=document.getElementById('var'+pi);if(e){e.textContent='?';e.style.background=VA_COLORS[pi];e.style.borderColor='#2a2d3a';}}
-  });
-  VA_PLACES.forEach((_,pi)=>{vABallSets[pi]=[];for(let d=0;d<=9;d++){const a=Math.random()*Math.PI*2,dist=Math.random()*28*.7;vABallSets[pi].push({d,x:45+Math.cos(a)*dist,y:82+Math.sin(a)*dist,vx:(Math.random()-.5)*1.8,vy:(Math.random()-.5)*1.8,br:6.5});}});
-}
-function vAStartDraw(){
-  if(vARunning) return;
-  vARunning=true;
-  const sb=document.getElementById('vAstartBtn');if(sb) sb.disabled=true;
-  const jo=Math.floor(Math.random()*5)+1;
-  const nums=Array.from({length:6},()=>Math.floor(Math.random()*10));
-  vAStartResultSpin();
-  vASetLabel('추첨 준비','버튼이 눌렸습니다. 7개 기계 가동 대기...');
-  vTimerRun('vA',VA_T_BTN,()=>{
-    vASetLabel('기계 가동 중','7개 비너스 에어믹스 동시 작동 중...');
-    vTimerRun('vA',VA_T_FIRST,()=>vAConfirmStep(jo,nums,0));
-  });
-}
-function vAStartResultSpin(){
-  if(vASpinInt) clearInterval(vASpinInt);
-  vASpinInt=setInterval(()=>{
-    VA_PLACES.forEach((pl,pi)=>{
-      if(vAConfirmed.has(pi)) return;
-      if(pi===6){const e=document.getElementById('varjo');if(e){e.textContent=(Math.floor(Math.random()*5)+1)+'조';e.style.background=VA_COLORS[6];}}
-      else{const e=document.getElementById('var'+pi);if(e){e.textContent=Math.floor(Math.random()*10);e.style.background=VA_COLORS[pi];}}
-    });
-  },100);
-}
-function vAConfirmStep(jo,nums,step){
-  const pi=VA_ORDER[step],isJo=pi===6,val=isJo?jo:nums[pi];
-  vAConfirmed.add(pi);vAExtracted[pi]=val;
-  if(isJo){const e=document.getElementById('varjo');if(e){e.textContent=jo+'조';e.style.background='#1a1a2e';e.style.borderColor=VA_COLORS[6];}}
-  else{const e=document.getElementById('var'+pi);if(e){e.textContent=val;e.style.background=VA_COLORS[pi];e.style.borderColor='#fff';}}
-  vASetLabel(['일','십','백','천','만','십만','조'][step]+' 자리 확정',`${isJo?jo+'조':val+'번'} 공이 드럼링에 잡혔습니다!`);
-  if(step<6) vTimerRun('vA',VA_T_INTER,()=>vAConfirmStep(jo,nums,step+1));
-  else{
-    if(vASpinInt) clearInterval(vASpinInt);
-    vARunning=false;
-    vASetLabel('추첨 완료',`${jo}조  ${nums.join('')}  —  추첨 완료`);
-    const sb=document.getElementById('vAstartBtn');if(sb){sb.disabled=false;sb.textContent='▶ 다시 추첨';}
-  }
-}
-function vASetLabel(label,status){
-  const l=document.getElementById('vAlabel');if(l) l.textContent=label;
-  const s=document.getElementById('vAstatus');if(s){s.textContent=status;s.style.color='#c8920a';}
-}
-
-// 공통 타이머
-function vTimerRun(prefix,ms,cb){
-  let e=0;
-  const tick=()=>{
-    e+=100;
-    const bar=document.getElementById(prefix+'bar');
-    const sec=document.getElementById(prefix+'sec');
-    if(bar) bar.style.width=Math.min(e/ms*100,100)+'%';
-    if(sec) sec.textContent=Math.ceil((ms-e)/1000)+'s';
-    if(e<ms){ if(prefix==='vL') vLDrawT=setTimeout(tick,100); else vADrawT=setTimeout(tick,100); }
-    else cb();
-  };
-  if(prefix==='vL') vLDrawT=setTimeout(tick,100); else vADrawT=setTimeout(tick,100);
-}
 </script>
 </body>
 </html>
