@@ -307,6 +307,24 @@ canvas{display:block;width:100%;height:auto;}
 <!-- 과거 번호 페이지                           -->
 <!-- ══════════════════════════════════════════ -->
 <div class="page" id="page-history">
+  <!-- 수동 데이터 입력 -->
+  <div class="card" style="margin-bottom:10px;">
+    <div class="sl">📝 당첨번호 직접 입력</div>
+    <div style="display:grid;grid-template-columns:60px 1fr 80px;gap:6px;align-items:center;margin-bottom:8px;">
+      <div style="font-size:10px;color:var(--muted);">회차</div>
+      <div style="font-size:10px;color:var(--muted);">번호 (쉼표 구분, 마지막=보너스)</div>
+      <div style="font-size:10px;color:var(--muted);">날짜</div>
+    </div>
+    <div style="display:grid;grid-template-columns:60px 1fr 90px 60px;gap:6px;align-items:center;">
+      <input id="inp-round" type="number" placeholder="1216" style="padding:7px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;width:100%;">
+      <input id="inp-nums" type="text" placeholder="1,7,15,22,33,44,보너스" style="padding:7px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;width:100%;">
+      <input id="inp-date" type="text" placeholder="2026-03-22" style="padding:7px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;width:100%;">
+      <button onclick="addLottoEntry()" style="padding:7px 10px;background:var(--gold);color:#000;border:none;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap;">추가</button>
+    </div>
+    <div id="inp-msg" style="font-size:10px;margin-top:6px;min-height:14px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;"></div>
+    <div style="font-size:9px;color:var(--muted2);margin-top:4px;">예) 회차: 1216 / 번호: 3,14,20,33,38,42,7 (7번째가 보너스) / 날짜: 2026-03-22</div>
+  </div>
+  <!-- 목록 -->
   <div class="card">
     <div class="sl">회차 범위</div>
     <div class="ptabs" id="htabs">
@@ -1518,6 +1536,47 @@ function setLottoStat(n,el){
 // ═══════════════════════════════════════════════
 // 페이지 전환
 // ═══════════════════════════════════════════════
+
+// ── 수동 당첨번호 입력 ──
+function addLottoEntry(){
+  const round = parseInt(document.getElementById('inp-round').value);
+  const numsRaw = document.getElementById('inp-nums').value.trim();
+  const date = document.getElementById('inp-date').value.trim() || new Date().toISOString().slice(0,10);
+  const msg = document.getElementById('inp-msg');
+
+  if(!round||round<1){msg.style.color='var(--red)';msg.textContent='⚠ 회차를 입력하세요';return;}
+  if(!numsRaw){msg.style.color='var(--red)';msg.textContent='⚠ 번호를 입력하세요';return;}
+
+  const parts = numsRaw.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+  if(parts.length !== 7){msg.style.color='var(--red)';msg.textContent='⚠ 번호 6개 + 보너스 1개 = 총 7개 입력하세요 (현재 '+parts.length+'개)';return;}
+
+  const nums = parts.slice(0,6);
+  const bonus = parts[6];
+
+  if(nums.some(n=>n<1||n>45)||bonus<1||bonus>45){msg.style.color='var(--red)';msg.textContent='⚠ 번호는 1~45 사이여야 해요';return;}
+  if(new Set(nums).size !== 6){msg.style.color='var(--red)';msg.textContent='⚠ 번호 6개가 중복됩니다';return;}
+
+  // 이미 존재하는 회차 확인
+  const exists = LALL.find(h=>h.round===round);
+  if(exists){msg.style.color='var(--red)';msg.textContent='⚠ '+round+'회는 이미 등록됐어요';return;}
+
+  // 추가 (회차 순서대로 삽입)
+  LALL.push({round, nums: nums.sort((a,b)=>a-b), bonus, date});
+  LALL.sort((a,b)=>b.round-a.round);
+
+  // 입력창 초기화
+  document.getElementById('inp-round').value = round+1;
+  document.getElementById('inp-nums').value = '';
+  document.getElementById('inp-date').value = '';
+
+  msg.style.color='var(--cyan)';
+  msg.textContent='✓ '+round+'회 추가 완료! (총 '+LALL.length+'회차 보유)';
+
+  // 목록 갱신
+  setHist(20, document.querySelector('#htabs .ptab'));
+  setTimeout(()=>{if(msg)msg.textContent='';}, 3000);
+}
+
 function showPage(name){
   if(name==='fav'){renderFav();}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
