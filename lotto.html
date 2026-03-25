@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로또 6/45 — 비너스 추첨 시뮬</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#090a0e;--bg2:#111318;--bg3:#181b22;--border:#222536;
+  --text:#e8e6f0;--muted:#7a7890;--muted2:#3e3d58;
+  --red:#d63030;--gold:#c8920a;--cyan:#1ab8c4;--green:#2a9f52;
+  --m1:#1ab8c4;--m2:#e06030;--m3:#2a9f52;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── 탭 네비 ── */
+.nav{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg2);}
+.nav-tab{padding:11px 18px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;}
+.nav-tab.on{color:var(--cyan);border-bottom-color:var(--cyan);}
+.nav-tab:hover{color:var(--text);}
+
+/* ── 페이지 ── */
+.page{display:none;max-width:1100px;margin:0 auto;padding:16px 12px 60px;}
+.page.on{display:block;}
+
+/* ── 공통 카드 ── */
+.card{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:12px;}
+.sl{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
+
+/* ── 추첨 페이지 ── */
+.draw-layout{display:flex;flex-direction:column;gap:8px;}
+.canvas-wrap{background:var(--bg2);border:1px solid var(--border);overflow:hidden;min-height:200px;}
+canvas{display:block;width:100%;height:auto;}
+
+/* 호기 선택 */
+.machine-sel{display:flex;gap:6px;margin-bottom:10px;}
+.mbtn{flex:1;padding:10px 6px;text-align:center;cursor:pointer;border:1px solid var(--border);background:var(--bg3);transition:all .15s;border-radius:3px;}
+.mbtn:hover{border-color:var(--muted);}
+.mbtn.on{border-width:2px;}
+.mbtn[data-m="1"].on{border-color:var(--m1);background:rgba(26,184,196,.1);}
+.mbtn[data-m="2"].on{border-color:var(--m2);background:rgba(224,96,48,.1);}
+.mbtn[data-m="3"].on{border-color:var(--m3);background:rgba(42,159,82,.1);}
+.mbtn-name{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;display:block;margin-bottom:2px;}
+.mbtn-desc{font-size:8px;color:var(--muted);line-height:1.5;}
+.mbtn[data-m="1"] .mbtn-name{color:var(--m1);}
+.mbtn[data-m="2"] .mbtn-name{color:var(--m2);}
+.mbtn[data-m="3"] .mbtn-name{color:var(--m3);}
+
+/* 게임 수 선택 */
+.game-sel{display:flex;gap:6px;margin-bottom:10px;}
+.gbtn{flex:1;padding:8px;text-align:center;cursor:pointer;border:1px solid var(--border);background:var(--bg3);font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;transition:all .15s;border-radius:3px;}
+.gbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(200,146,10,.1);}
+.gbtn:hover{border-color:var(--muted);}
+
+/* 결과 홀더 */
+.holders{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px;}
+.holder-game{background:var(--bg3);border:1px solid var(--border);padding:6px;border-radius:3px;}
+.hg-label{font-size:8px;color:var(--muted);margin-bottom:4px;font-family:'IBM Plex Mono',monospace;}
+.hg-balls{display:flex;gap:2px;flex-wrap:wrap;}
+.hball{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;color:#fff;border:1px solid var(--border);background:var(--bg2);}
+.hball.filled{border:none;animation:pop .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop{0%{transform:scale(1.4)}100%{transform:scale(1)}}
+.hball.bonus{opacity:.85;}
+
+/* 링캡 */
+.caps{display:none;}
+.cap{background:var(--bg3);border:1px solid var(--border);padding:5px 6px;text-align:center;border-radius:2px;transition:all .2s;}
+.cap.full{background:rgba(26,184,196,.2);border-color:var(--cyan);}
+.cap.open{background:rgba(200,146,10,.12);border-color:var(--gold);}
+.cn{font-size:8px;color:var(--muted);display:block;margin-bottom:2px;}
+.cv{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--muted2);}
+.cap.full .cv{color:var(--cyan);}
+
+/* 진행바 */
+.pbar-wrap{margin-bottom:8px;}
+.pbar-top{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;}
+.ptlab{font-weight:700;}.ptsec{color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.pbg{height:2px;background:var(--border);}
+.pf{height:2px;width:0%;transition:width .1s;}
+.pst{font-size:10px;color:var(--muted);margin-top:3px;min-height:13px;}
+.pst.on{color:var(--cyan);}
+
+/* 버튼 */
+.btns{display:flex;gap:6px;}
+.btn{padding:9px 14px;font-family:'IBM Plex Sans KR',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);transition:all .15s;}
+.btn-draw{background:var(--red);color:#fff;border-color:var(--red);flex:1;}
+.btn-draw:hover{background:#b52020;}
+.btn-reset{background:var(--bg3);color:var(--text);}
+.btn-reset:hover{background:var(--border);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* ── 통계 페이지 ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:12px;}
+.stat-card{background:var(--bg3);border:1px solid var(--border);padding:10px;text-align:center;}
+.sc-val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--cyan);}
+.sc-lab{font-size:9px;color:var(--muted);margin-top:3px;}
+
+/* 번호 빈도 그리드 */
+.freq-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin-bottom:12px;}
+.freq-cell{text-align:center;padding:4px 2px;border-radius:2px;}
+.fc-num{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;}
+.fc-cnt{font-size:8px;color:var(--muted);}
+.fc-bar{height:2px;background:var(--muted2);margin-top:2px;border-radius:1px;}
+
+/* 과거 번호 */
+.hist-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bg3);}
+.hist-round{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);width:40px;flex-shrink:0;}
+.hist-date{font-size:9px;color:var(--muted2);width:80px;flex-shrink:0;}
+.hist-balls{display:flex;gap:3px;flex:1;}
+.sball{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:#fff;}
+.sball.bonus-b{opacity:.75;border:1px dashed rgba(255,255,255,.3);}
+
+/* ── 리포트 페이지 ── */
+.report-header{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.rh-machine{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;}
+.rh-date{font-size:10px;color:var(--muted);}
+.report-games{display:grid;gap:10px;margin-bottom:12px;}
+.rg-card{background:var(--bg2);border:1px solid var(--border);padding:12px;}
+.rg-title{font-size:10px;color:var(--muted);margin-bottom:8px;font-family:'IBM Plex Mono',monospace;}
+.rg-balls{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.rball{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:#fff;}
+.rball.bonus-r{opacity:.8;border:2px dashed rgba(255,255,255,.4);}
+.rg-tags{display:flex;gap:4px;flex-wrap:wrap;}
+.tag{padding:2px 7px;border-radius:10px;font-size:9px;font-weight:600;border:1px solid;}
+.tag-cyan{color:var(--cyan);border-color:rgba(26,184,196,.4);background:rgba(26,184,196,.08);}
+.tag-gold{color:var(--gold);border-color:rgba(200,146,10,.4);background:rgba(200,146,10,.08);}
+.tag-red{color:var(--red);border-color:rgba(214,48,48,.4);background:rgba(214,48,48,.08);}
+.tag-green{color:var(--green);border-color:rgba(42,159,82,.4);background:rgba(42,159,82,.08);}
+.tag-muted{color:var(--muted);border-color:rgba(122,120,144,.3);background:rgba(122,120,144,.06);}
+
+/* 분석 요약 */
+.analysis-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.ag-item{background:var(--bg3);border:1px solid var(--border);padding:10px;}
+.ag-label{font-size:9px;color:var(--muted);margin-bottom:5px;}
+.ag-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--text);}
+.ag-sub{font-size:9px;color:var(--muted);margin-top:2px;}
+
+/* 번호 분포 바 */
+.zone-bar{display:flex;gap:3px;margin-bottom:8px;}
+.zb{flex:1;padding:6px 4px;text-align:center;border-radius:2px;font-size:9px;}
+.zb-cnt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;display:block;}
+
+/* 과거 비교 */
+.match-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bg3);}
+.match-cnt{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:var(--cyan);width:20px;}
+
+/* ptabs */
+.ptabs{display:flex;gap:4px;margin-bottom:10px;}
+.ptab{padding:5px 10px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);}
+.ptab.on{border-color:var(--cyan);color:var(--cyan);}
+
+/* ── 저장 번호 목록 ── */
+.saved-wrap{max-width:1100px;margin:0 auto;padding:0 12px 50px;}
+.saved-header{display:flex;align-items:center;gap:8px;padding:10px 14px 8px;border-bottom:1px solid var(--border);background:var(--bg2);border:1px solid var(--border);margin-bottom:8px;}
+.saved-title{font-size:11px;font-weight:700;color:var(--text);flex:1;}
+.saved-count{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--cyan);background:rgba(26,184,196,.12);padding:2px 7px;border-radius:8px;}
+.saved-btns{display:flex;gap:5px;}
+.sv-btn{padding:5px 10px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);transition:all .15s;}
+.sv-btn:hover{color:var(--text);border-color:var(--muted);}
+.sv-btn.del-sel{color:var(--gold);}
+.sv-btn.del-all{color:var(--red);border-color:rgba(214,48,48,.3);}
+.sv-btn.del-all:hover{background:rgba(214,48,48,.1);}
+.saved-list{display:flex;flex-direction:column;gap:4px;}
+.saved-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--border);transition:all .15s;}
+.saved-row:hover{border-color:var(--muted2);}
+.saved-row.selected{border-left-color:var(--cyan);background:rgba(26,184,196,.04);}
+.sv-check{width:14px;height:14px;cursor:pointer;accent-color:var(--cyan);flex-shrink:0;}
+.sv-idx{font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--muted2);width:20px;text-align:center;flex-shrink:0;}
+.sv-machine{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;width:28px;flex-shrink:0;}
+.sv-balls{display:flex;gap:3px;flex:1;align-items:center;}
+.svball{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;}
+.svball.bns{opacity:.75;border:1px dashed rgba(255,255,255,.4);}
+.sv-plus{font-size:11px;color:var(--muted2);margin:0 1px;}
+.sv-tags{display:flex;gap:3px;flex-wrap:wrap;margin-left:4px;}
+.sv-tag{padding:1px 5px;border-radius:8px;font-size:8px;font-weight:600;border:1px solid;}
+.sv-meta{font-size:8px;color:var(--muted2);white-space:nowrap;margin-left:auto;}
+.sv-del{padding:3px 7px;font-size:9px;cursor:pointer;border:1px solid rgba(214,48,48,.25);background:transparent;color:rgba(214,48,48,.5);flex-shrink:0;}
+.sv-del:hover{background:rgba(214,48,48,.12);color:var(--red);}
+.saved-empty{text-align:center;padding:28px;color:var(--muted);font-size:11px;background:var(--bg2);border:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<!-- 네비게이션 -->
+<nav class="nav">
+  <div class="nav-tab on" onclick="showPage('draw')">🎱 추첨</div>
+  <div class="nav-tab" onclick="showPage('report')">📊 분석</div>
+  <div class="nav-tab" onclick="showPage('history')">📋 과거 번호</div>
+  <div class="nav-tab" onclick="showPage('stat')">📈 통계</div>
+  <div class="nav-tab" onclick="showPage('fav')">⭐ 찜</div>
+  <div style="margin-left:auto;display:flex;align-items:center;padding:0 8px;gap:5px;">
+    <span id="lotto-update-status" style="font-size:8px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">확인 중...</span>
+    <span onclick="autoUpdateLotto()" style="cursor:pointer;font-size:11px;color:var(--muted);">🔄</span>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 추첨 페이지                                -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page on" id="page-draw">
+<div class="draw-layout">
+
+  <!-- 캔버스 중앙 크게 -->
+  <div class="canvas-wrap" style="width:100%;min-height:220px;"><canvas id="vc" width="700" height="720" style="width:100%;max-height:420px;display:block;"></canvas></div>
+
+  <!-- 컨트롤 바 -->
+  <div style="background:var(--bg2);border:1px solid var(--border);padding:10px 12px;">
+    <!-- 호기 + 게임수 한줄 -->
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+      <div class="machine-sel" style="flex:1;">
+        <div class="mbtn on" data-m="1" onclick="selectMachine(1)" style="padding:6px 4px;">
+          <span class="mbtn-name">1호기</span>
+          <span class="mbtn-desc" style="font-size:7px;">이월·동끝·구간</span>
+        </div>
+        <div class="mbtn" data-m="2" onclick="selectMachine(2)" style="padding:6px 4px;">
+          <span class="mbtn-name">2호기</span>
+          <span class="mbtn-desc" style="font-size:7px;">1궁·9궁·꼴통</span>
+        </div>
+        <div class="mbtn" data-m="3" onclick="selectMachine(3)" style="padding:6px 4px;">
+          <span class="mbtn-name">3호기</span>
+          <span class="mbtn-desc" style="font-size:7px;">연번·균등분포</span>
+        </div>
+      </div>
+      <div class="game-sel" style="flex:0 0 auto;">
+        <div class="gbtn" data-g="1" onclick="selectGames(1)">1</div>
+        <div class="gbtn on" data-g="3" onclick="selectGames(3)">3</div>
+        <div class="gbtn" data-g="6" onclick="selectGames(6)">6</div>
+        <div class="gbtn" data-g="9" onclick="selectGames(9)">9</div>
+      </div>
+    </div>
+
+    <!-- 진행바 -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <div class="dot" id="dot" style="width:6px;height:6px;border-radius:50%;background:var(--muted2);flex-shrink:0;"></div>
+      <span id="phl" style="font-size:10px;font-weight:600;flex:1;">대기 중</span>
+      <span id="game-prog" style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;"></span>
+      <span id="ptlab" style="font-size:9px;color:var(--muted);font-weight:700;margin-right:4px;"></span><span id="ptsec" style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;"></span>
+    </div>
+    <div class="pbg" style="margin-bottom:4px;"><div class="pf" id="pfi" style="background:var(--cyan);"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+      <div class="pst" id="pst" style="font-size:9px;"></div>
+      <div id="game-elapsed" style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;"></div>
+    </div>
+
+    <!-- 숨겨진 링캡 (기능유지) -->
+    <div class="caps" style="display:none;">
+      <div class="cap" id="rc0"><span class="cn">CAP 1</span><span class="cv" id="rv0">—</span></div>
+      <div class="cap" id="rc1"><span class="cn">CAP 2</span><span class="cv" id="rv1">—</span></div>
+      <div class="cap" id="rc2"><span class="cn">CAP 3</span><span class="cv" id="rv2">—</span></div>
+      <div class="cap" id="rc3"><span class="cn">CAP 4</span><span class="cv" id="rv3">—</span></div>
+    </div>
+
+    <!-- 결과 (호기별 1줄씩) -->
+    <div id="holders" style="margin-bottom:8px;display:flex;flex-direction:column;gap:4px;"></div>
+
+    <!-- 버튼 -->
+    <div class="btns">
+      <button class="btn btn-draw" id="sb" onclick="startAll()">▶ 추첨 시작</button>
+      <button class="btn btn-reset" onclick="resetAll()">↺</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- 찜 페이지 -->
+<div class="page" id="page-fav">
+  <div style="max-width:1100px;margin:0 auto;padding:14px 12px;">
+    <div class="card">
+      <div class="sl">⭐ 찜한 번호</div>
+      <div id="fav-list"><p style="color:var(--muted);font-size:11px;padding:20px;text-align:center;">저장 목록에서 ★ 버튼으로 찜하세요</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 저장 번호 목록 (항상 하단에 고정)          -->
+<!-- ══════════════════════════════════════════ -->
+<div class="saved-wrap" id="saved-wrap">
+  <div class="saved-header">
+    <div class="saved-title">📋 저장된 번호 목록</div>
+    <div class="saved-count" id="saved-count">0 / 20</div>
+    <div class="saved-btns">
+      <button class="sv-btn" onclick="selectAllSaved()">전체선택</button>
+      <button class="sv-btn del-sel" onclick="deleteSelected()">선택삭제</button>
+      <button class="sv-btn del-all" onclick="deleteAll()">전체삭제</button>
+    </div>
+  </div>
+  <div class="saved-list" id="saved-list">
+    <div class="saved-empty">추첨 후 번호가 여기에 자동으로 저장됩니다 (최대 20조합)</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 분석/리포트 페이지                         -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page" id="page-report">
+  <div id="report-empty" class="card" style="text-align:center;padding:40px;color:var(--muted);">
+    추첨 후 분석 리포트가 여기에 표시됩니다.
+  </div>
+  <div id="report-content" style="display:none;"></div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 과거 번호 페이지                           -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page" id="page-history">
+  <div class="card">
+    <div class="sl">회차 범위</div>
+    <div class="ptabs" id="htabs">
+      <div class="ptab on" onclick="setHist(20,this)">최근 20회</div>
+      <div class="ptab" onclick="setHist(50,this)">50회</div>
+      <div class="ptab" onclick="setHist(100,this)">100회</div>
+      <div class="ptab" onclick="setHist(0,this)">전체</div>
+    </div>
+    <div id="hist-out"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 통계 페이지                               -->
+<!-- ══════════════════════════════════════════ -->
+<div class="page" id="page-stat">
+  <div class="card">
+    <div class="sl">분석 기간</div>
+    <div class="ptabs" id="stabs">
+      <div class="ptab on" onclick="setLottoStat(20,this)">20회</div>
+      <div class="ptab" onclick="setLottoStat(50,this)">50회</div>
+      <div class="ptab" onclick="setLottoStat(100,this)">100회</div>
+      <div class="ptab" onclick="setLottoStat(0,this)">전체</div>
+    </div>
+    <div class="stat-grid" id="stat-summary"></div>
+    <div class="sl" id="stat-label">번호별 출현 빈도</div>
+    <div class="freq-grid" id="freq-grid"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// 로또 데이터
+// ═══════════════════════════════════════════════
+let LALL = [];
+const LOTTO_FALLBACK = [
+  {round:1215,nums:[13,15,19,21,44,45],bonus:39,date:'2026-03-14'},
+  {round:1214,nums:[10,15,19,27,30,33],bonus:14,date:'2026-03-07'},
+  {round:1213,nums:[5,11,25,27,36,38],bonus:2,date:'2026-02-28'},
+  {round:1212,nums:[5,8,25,31,41,44],bonus:45,date:'2026-02-21'},
+  {round:1211,nums:[23,26,27,35,38,40],bonus:10,date:'2026-02-14'},
+  {round:1210,nums:[1,7,9,17,27,38],bonus:31,date:'2026-02-07'},
+  {round:1209,nums:[2,17,20,35,37,39],bonus:24,date:'2026-01-31'},
+  {round:1208,nums:[6,27,30,36,38,42],bonus:25,date:'2026-01-24'},
+  {round:1207,nums:[10,22,24,27,38,45],bonus:11,date:'2026-01-17'},
+  {round:1206,nums:[1,3,17,26,27,42],bonus:23,date:'2026-01-10'},
+  {round:1205,nums:[1,4,16,23,31,41],bonus:2,date:'2026-01-03'},
+  {round:1204,nums:[8,16,28,30,31,44],bonus:27,date:'2025-12-27'},
+  {round:1203,nums:[3,6,18,29,35,39],bonus:24,date:'2025-12-20'},
+  {round:1202,nums:[5,12,21,33,37,40],bonus:7,date:'2025-12-13'},
+  {round:1201,nums:[7,9,24,27,35,36],bonus:37,date:'2025-12-06'},
+  {round:1200,nums:[4,11,23,29,32,44],bonus:16,date:'2025-11-29'},
+  {round:1199,nums:[6,14,21,28,34,40],bonus:3,date:'2025-11-22'},
+  {round:1198,nums:[2,9,19,31,37,42],bonus:22,date:'2025-11-15'},
+  {round:1197,nums:[10,18,25,30,38,43],bonus:5,date:'2025-11-08'},
+  {round:1196,nums:[1,12,20,27,33,41],bonus:17,date:'2025-11-01'},
+  {round:1195,nums:[3,8,14,22,35,40],bonus:11,date:'2025-10-25'},
+  {round:1194,nums:[7,11,16,24,31,38],bonus:2,date:'2025-10-18'},
+  {round:1193,nums:[4,9,18,26,37,43],bonus:28,date:'2025-10-11'},
+  {round:1192,nums:[2,6,15,23,32,41],bonus:10,date:'2025-10-04'},
+  {round:1191,nums:[1,12,19,28,36,44],bonus:7,date:'2025-09-27'},
+  {round:1190,nums:[5,13,21,29,34,42],bonus:18,date:'2025-09-20'},
+  {round:1189,nums:[3,10,17,25,33,45],bonus:22,date:'2025-09-13'},
+  {round:1188,nums:[8,14,20,27,35,40],bonus:4,date:'2025-09-06'},
+  {round:1187,nums:[2,11,18,24,32,43],bonus:36,date:'2025-08-30'},
+  {round:1186,nums:[6,9,16,23,31,39],bonus:45,date:'2025-08-23'},
+];
+LALL = [...LOTTO_FALLBACK];
+
+// ── 로또 자동 업데이트 ──
+// 기준: 1회=2002-12-07(토), 매주 토요일 21:30 이후 갱신
+function calcLatestLottoRound(){
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9*60*60*1000);
+  const day = kst.getUTCDay(); // 0=일, 6=토
+  const hour = kst.getUTCHours();
+  const min = kst.getUTCMinutes();
+  const base = new Date('2002-12-07T00:00:00Z');
+  const weeks = Math.floor((kst - base) / (7*24*60*60*1000));
+  let round = 1 + weeks;
+  // 토요일(6) 21:30 이전이면 -1
+  if(day < 6 || (day===6 && (hour<21 || (hour===21&&min<30)))) round--;
+  return Math.max(1, round);
+}
+
+function lottoRoundToDate(round){
+  const base = new Date('2002-12-07T00:00:00Z');
+  const d = new Date(base.getTime() + (round-1)*7*24*60*60*1000);
+  return d.toISOString().slice(0,10);
+}
+
+async function fetchLottoRound(round){
+  try{
+    const url = 'https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo='+round;
+    const proxy = 'https://api.allorigins.win/get?url='+encodeURIComponent(url);
+    const res = await fetch(proxy, {signal: AbortSignal.timeout(5000)});
+    const data = await res.json();
+    const d = JSON.parse(data.contents);
+    if(d.returnValue==='success'){
+      return {
+        round: d.drwNo,
+        nums: [d.drwtNo1,d.drwtNo2,d.drwtNo3,d.drwtNo4,d.drwtNo5,d.drwtNo6],
+        bonus: d.bnusNo,
+        date: d.drwNoDate
+      };
+    }
+  }catch(e){}
+  return null;
+}
+
+function updateLottoStatus(msg, type){
+  const el=document.getElementById('lotto-update-status');
+  if(!el) return;
+  const c={ok:'var(--green)',loading:'var(--cyan)',warn:'var(--gold)'};
+  el.textContent=msg; el.style.color=c[type]||'var(--muted)';
+}
+
+async function autoUpdateLotto(){
+  const latest = calcLatestLottoRound();
+  const stored = LALL.length>0 ? LALL[0].round : 0;
+  if(latest <= stored){
+    updateLottoStatus('최신 '+stored+'회 ✓','ok');
+    return;
+  }
+  updateLottoStatus('최신 '+latest+'회 확인 중...','loading');
+  let added=0;
+  for(let r=stored+1; r<=latest; r++){
+    const result = await fetchLottoRound(r);
+    if(result){ LALL.unshift(result); added++; }
+    else break;
+  }
+  if(added>0){
+    updateLottoStatus('✓ '+added+'회 업데이트 (최신:'+LALL[0].round+'회)','ok');
+  } else {
+    updateLottoStatus('오프라인 (내장:'+stored+'회)','warn');
+  }
+}
+
+// initUI called at end
+
+// ═══════════════════════════════════════════════
+// 호기 바이어스 시스템
+// ═══════════════════════════════════════════════
+// 물리 추첨 결과에 호기별 바이어스 후처리
+// (실제 추첨은 물리엔진으로, 호기 특성은 결과 패턴으로 반영)
+
+function applyMachineBias(nums, bonus, machineNum){
+  // 물리 추첨 결과를 그대로 사용
+  // 호기 특성은 분석 리포트에서 패턴 설명으로 제공
+  return {nums, bonus};
+}
+
+// ═══════════════════════════════════════════════
+// 물리 엔진 (venus_physics.html 그대로)
+// ═══════════════════════════════════════════════
+const cv = document.getElementById('vc');
+const ctx = cv.getContext('2d');
+const W=700, H=720;
+const CX=340, CY=385, CR=200, BR=18;
+const AH1_ANG=Math.PI/2;
+const AH1X=CX+Math.cos(AH1_ANG)*(CR-BR*2-2);
+const AH1Y=CY+Math.sin(AH1_ANG)*(CR-BR*2-2);
+const AH_R=BR*2;
+const DRUM_T=22;
+const CCAP_ANG=-Math.PI/2;
+const RING_W=-Math.PI/4;
+const NCAPS=4;
+const ALIGN_TOL=0.06;
+const PX_M=800, FPS=60;
+const G=9.81*PX_M/(FPS*FPS);
+const K_DRAG=0.5*1.225*0.47*Math.PI*0.0225*0.0225;
+const DRAG_K=K_DRAG/0.004*FPS*FPS/PX_M;
+const AIR_SIGMA=CR*0.75;
+const E_WALL=0.98;
+const HX_POS=CX-CR-52, H_GAP2=54, H_TOP2=80;
+
+let balls=[], ringAng=0;
+let ringCaps=[{n:null,closed:false},{n:null,closed:false},{n:null,closed:false},{n:null,closed:false}];
+let confirmed=[], nOut=0;
+let phys_phase='idle', airOn=false, ringOn=false;
+let timerH=null, lastTS=0, animId=null;
+let airStr=0, capCool=0, ringPause=0, airDip=1;
+let tubeBalls=[];
+
+function bc(n){return n<=10?'#e6a817':n<=20?'#3a82d6':n<=30?'#d63030':n<=40?'#64686e':'#2a8f52';}
+function li(h,a){let r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgb('+Math.min(255,r+a)+','+Math.min(255,g+a)+','+Math.min(255,b+a)+')';}
+function da(h,a){let r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgb('+Math.max(0,r-a)+','+Math.max(0,g-a)+','+Math.max(0,b-a)+')';}
+function normA(a){return((a%(Math.PI*2))+Math.PI*2)%(Math.PI*2);}
+function aDiff(a,b){var d=Math.abs(normA(a)-normA(b));return d>Math.PI?Math.PI*2-d:d;}
+
+function spawnBalls(){
+  balls=[];
+  const rings=[1,8,12,14,10]; let n=1,ri=0;
+  rings.forEach(count=>{
+    const r=ri*(CR-BR*3.5)/4;
+    for(let k=0;k<count&&n<=45;k++){
+      const a=k/Math.max(count,1)*Math.PI*2+ri*0.5;
+      balls.push({n:n++,color:bc(n-1),state:'free',
+        x:CX+Math.cos(a)*r+(Math.random()-.5)*3,
+        y:CY+Math.sin(a)*r+(Math.random()-.5)*3,
+        vx:(Math.random()-.5)*0.5,vy:(Math.random()-.5)*0.5,trail:[]});
+    }
+    ri++;
+  });
+}
+
+function physStep(dt){
+  if(airOn&&airStr<1) airStr=Math.min(1,airStr+dt/900);
+  if(!airOn) airStr=Math.max(0,airStr-dt/300);
+  if(airDip<1) airDip=Math.min(1,airDip+dt/800);
+  if(ringPause>0) ringPause-=dt;
+  const dtF=dt/16.67;
+  const ea=airStr*airDip;
+  balls.forEach(b=>{
+    if(b.state!=='free')return;
+    b.trail.push({x:b.x,y:b.y}); if(b.trail.length>6)b.trail.shift();
+    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)+0.001;
+    b.vy+=G*dtF;
+    const drag=DRAG_K*spd*spd*dtF*(airOn?(1+airStr*2):1);
+    const dragAcc=Math.min(drag,spd*0.4);
+    b.vx-=(b.vx/spd)*dragAcc; b.vy-=(b.vy/spd)*dragAcc;
+    if(airStr>0){
+      const s=ea;
+      const ahDx=b.x-AH1X,ahDy=b.y-AH1Y,ahD=Math.sqrt(ahDx*ahDx+ahDy*ahDy)+0.1;
+      const ahWt=Math.exp(-(ahDx*ahDx+ahDy*ahDy)/(2*AIR_SIGMA*AIR_SIGMA));
+      b.vy-=G*1.6*s*ahWt*dtF; b.vx+=(ahDx/ahD)*G*1.2*s*ahWt*dtF;
+      b.vx+=(Math.random()*2-1)*G*8.0*s*dtF; b.vy+=(Math.random()*2-1)*G*8.0*s*dtF;
+    }
+    const sn=Math.sqrt(b.vx*b.vx+b.vy*b.vy); if(sn>26){b.vx=b.vx/sn*26;b.vy=b.vy/sn*26;}
+    for(let ss=0;ss<2;ss++){
+      b.x+=b.vx*dtF/2; b.y+=b.vy*dtF/2;
+      const wx=b.x-CX,wy=b.y-CY,wd=Math.sqrt(wx*wx+wy*wy),mR=CR-BR;
+      if(wd>mR){
+        const nx=wx/wd,ny=wy/wd;
+        b.x=CX+nx*mR*0.9995; b.y=CY+ny*mR*0.9995;
+        const vn=b.vx*nx+b.vy*ny;
+        if(vn>0){b.vx-=(1+E_WALL)*vn*nx;b.vy-=(1+E_WALL)*vn*ny;
+          if(airStr>0){b.vx+=(Math.random()-.5)*1.2*airStr;b.vy+=(Math.random()-.5)*1.2*airStr;}}
+      }
+    }
+  });
+  for(let i=0;i<balls.length;i++){
+    const a=balls[i];if(a.state!=='free')continue;
+    for(let j=i+1;j<balls.length;j++){
+      const b=balls[j];if(b.state!=='free')continue;
+      const dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy,minD=BR*2+0.5;
+      if(d2>=minD*minD)continue;
+      const d=Math.sqrt(d2)+0.001,nx=dx/d,ny=dy/d,ov=(minD-d)*0.5;
+      a.x+=nx*ov;a.y+=ny*ov;b.x-=nx*ov;b.y-=ny*ov;
+      const v1n=a.vx*nx+a.vy*ny,v2n=b.vx*nx+b.vy*ny;
+      if(v1n-v2n>0){const dv=v1n-v2n;a.vx-=dv*nx;a.vy-=dv*ny;b.vx+=dv*nx;b.vy+=dv*ny;}
+    }
+  }
+}
+
+function ringStep(dt){
+  if(!ringOn||ringPause>0)return;
+  ringAng+=RING_W*(dt/1000);
+  if(capCool>0){capCool-=dt;}
+  for(let ci=0;ci<NCAPS;ci++){
+    const capAng=ringAng+ci*(Math.PI/2);
+    const drumIn=CR+2,drumOut=CR+DRUM_T+6,drumMid=(drumIn+drumOut)/2;
+    const capX=CX+Math.cos(capAng)*drumMid,capY=CY+Math.sin(capAng)*drumMid;
+    const holeX=CX+Math.cos(capAng)*(CR-2),holeY=CY+Math.sin(capAng)*(CR-2);
+    const atCap=aDiff(capAng,CCAP_ANG)<ALIGN_TOL;
+    if(ringCaps[ci].n!==null){
+      const ball=balls.find(b=>b.n===ringCaps[ci].n&&b.state==='captured');
+      if(ball){ball.x=holeX;ball.y=holeY;}
+      if(atCap&&nOut<7){doRelease(ci);return;}
+      continue;
+    }
+    if(ringCaps[ci].closed){if(!atCap)ringCaps[ci].closed=false;continue;}
+    if(!atCap)continue; if(capCool>0)continue;
+    balls.forEach(b=>{
+      if(b.state!=='free')return;
+      const dx=b.x-holeX,dy=b.y-holeY,d=Math.sqrt(dx*dx+dy*dy)+.1;
+      if(d<CR*1.8){const suck=0.5*(1-d/(CR*1.8))*airStr;b.vx-=dx/d*suck;b.vy-=dy/d*suck;}
+    });
+    let closest=null,minD=BR*5;
+    balls.forEach(b=>{
+      if(b.state!=='free')return;
+      const dx=b.x-holeX,dy=b.y-holeY,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<minD){minD=d;closest=b;}
+    });
+    if(closest){
+      closest.state='captured';closest.vx=0;closest.vy=0;closest.trail=[];
+      ringCaps[ci].n=closest.n;ringCaps[ci].closed=false;capCool=500;
+      const el=document.getElementById('rc'+ci);if(el)el.className='cap full';
+      const rv=document.getElementById('rv'+ci);if(rv)rv.textContent=closest.n<10?'0'+closest.n:closest.n;
+      setStatus(closest.n+'번 포착!');
+    }
+    break;
+  }
+}
+
+function doRelease(ci){
+  const n=ringCaps[ci].n;
+  ringCaps[ci].n=null;ringCaps[ci].closed=true;
+  ringPause=500;airDip=0.3;
+  const ball=balls.find(b=>b.n===n);if(ball)ball.state='tubed';
+  tubeBalls.push({n,color:bc(n),x:HX_POS,y:H_TOP2+22+nOut*H_GAP2,settled:true});
+  confirmed.push(n);nOut++;
+  const el=document.getElementById('rc'+ci);if(el)el.className='cap';
+  const rv=document.getElementById('rv'+ci);if(rv)rv.textContent='—';
+  updateHolderGame();
+  setStatus(n+'번 배출! ('+nOut+'/7)');
+  if(nOut>=7) onGameDone();
+}
+
+// ═══════════════════════════════════════════════
+// 게임 관리
+// ═══════════════════════════════════════════════
+let curMachine=1, curGameCount=3;
+let allResults=[];     // [{nums,bonus,machine}]
+let curGameIdx=0;
+let drawPhase='idle';
+let ringBarT=null;
+
+function selectMachine(n){
+  curMachine=n;
+  document.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('on',+b.dataset.m===n));
+  updateGameDesc();
+}
+function selectGames(n){
+  curGameCount=n;
+  document.querySelectorAll('.gbtn').forEach(b=>b.classList.toggle('on',+b.dataset.g===n));
+  updateGameDesc();
+  renderHolders();
+}
+function updateGameDesc(){
+  const el=document.getElementById('game-desc');
+  if(!el) return;
+  if(curGameCount===1){
+    el.textContent=`${curMachine}호기 × 1게임`;
+  } else {
+    const perMachine=curGameCount/3;
+    el.textContent=`1·2·3호기 각 ${perMachine}게임씩 (총 ${curGameCount}게임)`;
+  }
+}
+
+function renderHolders(){
+  const el=document.getElementById('holders');
+  if(!el) return;
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const mNames={1:'1호기',2:'2호기',3:'3호기'};
+  const queue=gameQueue.length>0?gameQueue:buildGameQueue();
+  let html='';
+  for(let g=0;g<queue.length;g++){
+    const qi=queue[g];
+    const machine=qi.machine, slotIdx=qi.slotIdx;
+    const res=allResults[slotIdx];
+    const nums=res?res.nums:[];
+    const bonus=res?res.bonus:null;
+    const mCol=mColors[machine];
+    const isDone=res&&nums.length===6;
+    let nballs='';
+    for(let i=0;i<6;i++){
+      const n=nums[i];
+      if(n){
+        nballs+='<span style="display:inline-flex;width:26px;height:26px;border-radius:50%;background:'+bc(n)+';align-items:center;justify-content:center;font-family:\'IBM Plex Mono\',monospace;font-size:9px;font-weight:700;color:#fff;margin-right:2px;">'+(n<10?'0'+n:n)+'</span>';
+      } else {
+        nballs+='<span style="display:inline-flex;width:26px;height:26px;border-radius:50%;border:1px solid '+mCol+'33;align-items:center;justify-content:center;font-size:9px;color:var(--muted2);">?</span>';
+      }
+    }
+    if(bonus){
+      nballs+='<span style="margin-left:3px;color:var(--muted2);font-size:10px;">+</span>';
+      nballs+='<span style="display:inline-flex;width:26px;height:26px;border-radius:50%;background:'+bc(bonus)+';align-items:center;justify-content:center;font-family:\'IBM Plex Mono\',monospace;font-size:9px;font-weight:700;color:#fff;opacity:.8;margin-left:2px;">'+(bonus<10?'0'+bonus:bonus)+'</span>';
+    }
+    const opacity=isDone?'':'opacity:.5;';
+    const cursor=isDone?'cursor:pointer;':'';
+    const onclick=isDone?'onclick="showLottoDetail('+slotIdx+')"':'';
+    const icon=isDone?'<span style="font-size:9px;color:var(--muted);">🔍</span>':'';
+    html+='<div '+onclick+' style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-left:3px solid '+mCol+';border-radius:2px;'+opacity+cursor+'">';
+    html+='<span style="font-size:9px;color:'+mCol+';font-family:\'IBM Plex Mono\',monospace;width:30px;flex-shrink:0;">'+mNames[machine]+'</span>';
+    html+='<span style="font-size:9px;color:var(--muted2);width:14px;">'+(g+1)+'</span>';
+    html+='<div style="flex:1;display:flex;align-items:center;">'+nballs+'</div>';
+    html+=icon;
+    html+='</div>';
+  }
+  el.innerHTML=html||'<p style="color:var(--muted);font-size:10px;padding:8px;">추첨 대기 중...</p>';
+}
+
+// ── 상세분석 팝업 ──
+function showLottoDetail(idOrSlot){
+  // savedList id로 찾거나 allResults slotIdx로 찾기
+  idOrSlot=Number(idOrSlot);
+  const saved=savedList.find(s=>s.id===idOrSlot);
+  let res=saved?{nums:saved.nums,bonus:saved.bonus,machine:saved.machine}:allResults[idOrSlot];
+  if(!res) return;
+  const nums=res.nums, bonus=res.bonus, machine=res.machine;
+  const mName={1:'1호기',2:'2호기',3:'3호기'}[machine]||'?';
+  const mCol={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'}[machine]||'var(--muted)';
+  const sorted=[...nums].sort((a,b)=>a-b);
+
+  // 분석
+  const sum=sorted.reduce((a,b)=>a+b,0);
+  const zones=[0,0,0]; sorted.forEach(n=>zones[n<=15?0:n<=30?1:2]++);
+  const odd=sorted.filter(n=>n%2).length;
+  let maxCons=1,cur=1;
+  for(let i=1;i<sorted.length;i++){if(sorted[i]===sorted[i-1]+1)cur++;else cur=1;maxCons=Math.max(maxCons,cur);}
+  const lastNums=LALL.length>0?LALL[0].nums:[];
+  const carry=sorted.filter(n=>lastNums.includes(n));
+  const palace1=[1,10,19,28,37],palace9=[9,18,27,36,45];
+  const p1=sorted.filter(n=>palace1.includes(n)).length;
+  const p9=sorted.filter(n=>palace9.includes(n)).length;
+  const ends=sorted.map(n=>n%10); const endSet=new Set(ends);
+  const similar=LALL.slice(0,30).map(h=>{
+    const m=sorted.filter(n=>h.nums.includes(n));
+    return {round:h.round,date:h.date,nums:h.nums,bonus:h.bonus,matched:m,cnt:m.length};
+  }).filter(h=>h.cnt>=3).sort((a,b)=>b.cnt-a.cnt).slice(0,3);
+
+  // 볼 HTML (문자열 연결)
+  let ballsHtml='';
+  sorted.forEach(n=>{
+    ballsHtml+='<div style="width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:'+bc(n)+';font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:700;color:#fff;">'+(n<10?'0'+n:n)+'</div>';
+  });
+  ballsHtml+='<span style="color:var(--muted);font-size:16px;margin:0 4px;">+</span>';
+  ballsHtml+='<div style="width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:'+bc(bonus)+';font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:700;color:#fff;opacity:.8;">'+(bonus<10?'0'+bonus:bonus)+'</div>';
+
+  // 태그 HTML
+  let tagHtml='';
+  if(carry.length>0) tagHtml+='<span style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;color:#c8920a;border:1px solid rgba(200,146,10,.4);background:rgba(200,146,10,.1);">이월수 '+carry.join(',')+'('+carry.length+'개)</span>';
+  if(p1>=2) tagHtml+='<span style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;color:#1ab8c4;border:1px solid rgba(26,184,196,.4);background:rgba(26,184,196,.1);">1궁 '+p1+'개</span>';
+  if(p9>=2) tagHtml+='<span style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;color:#1ab8c4;border:1px solid rgba(26,184,196,.4);background:rgba(26,184,196,.1);">9궁 '+p9+'개</span>';
+  if(endSet.size<sorted.length) tagHtml+='<span style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;color:#c8920a;border:1px solid rgba(200,146,10,.4);background:rgba(200,146,10,.1);">동끝수</span>';
+  if(zones.includes(0)) tagHtml+='<span style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;color:#8b5cf6;border:1px solid rgba(139,92,246,.4);background:rgba(139,92,246,.1);">멸구간</span>';
+  if(Math.max(...zones)>=4) tagHtml+='<span style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;color:#d63030;border:1px solid rgba(214,48,48,.4);background:rgba(214,48,48,.1);">구간몰림</span>';
+  tagHtml+='<span style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;color:#7a7890;border:1px solid rgba(122,120,144,.3);">끝자리 '+sorted.map(n=>n%10).join('-')+'</span>';
+
+  // 호기 설명
+  const machineDesc={
+    1:'이월수 <b>'+carry.length+'개</b> 포함. 구간 '+zones[0]+'-'+zones[1]+'-'+zones[2]+'.'+(zones.includes(0)?' <span style="color:#8b5cf6;">멸구간 있음</span>':' 균형 분포'),
+    2:'1궁 <b>'+p1+'개</b>, 9궁 <b>'+p9+'개</b>. 이월수 '+(carry.length>0?carry.join(',')+'포함':'없음')+'.',
+    3:'최대 <b>'+maxCons+'연속</b>. 구간 '+zones[0]+'-'+zones[1]+'-'+zones[2]+'.'+(Math.max(...zones)<=2?' <span style="color:#2a9f52;">골고루 분포</span>':' 구간 몰림')
+  }[machine]||'';
+
+  // 유사번호 HTML
+  let simHtml='';
+  if(similar.length===0){
+    simHtml='<p style="color:#7a7890;font-size:10px;">3개 이상 일치 없음</p>';
+  } else {
+    similar.forEach(h=>{
+      let bh='';
+      h.nums.forEach(n=>{
+        bh+='<span style="display:inline-flex;width:22px;height:22px;border-radius:50%;background:'+bc(n)+';align-items:center;justify-content:center;font-family:\'IBM Plex Mono\',monospace;font-size:8px;font-weight:700;color:#fff;opacity:'+(h.matched.includes(n)?1:.3)+';">'+(n<10?'0'+n:n)+'</span>';
+      });
+      simHtml+='<div style="display:flex;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid #222536;">'
+        +'<span style="font-size:9px;color:#7a7890;width:34px;">'+h.round+'회</span>'
+        +'<span style="font-size:9px;color:#1ab8c4;font-weight:700;width:28px;">'+h.cnt+'개↑</span>'
+        +'<div style="display:flex;gap:2px;">'+bh+'</div>'
+        +'<span style="font-size:8px;color:#3e3d58;margin-left:auto;">'+h.date+'</span>'
+        +'</div>';
+    });
+  }
+
+  // 팝업 조립
+  const div=document.createElement('div');
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:8000;overflow-y:auto;padding:20px 12px;';
+  div.onclick=function(e){if(e.target===div)div.remove();};
+  div.innerHTML=''
+    +'<div style="max-width:480px;margin:0 auto;background:#111318;border:1px solid #222536;padding:16px;border-radius:6px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">'
+    +'<div style="font-size:13px;font-weight:700;color:'+mCol+';">'+mName+'</div>'
+    +'<div style="flex:1;font-size:10px;color:#7a7890;">상세 분석</div>'
+    +'<div id="det-close" style="cursor:pointer;color:#7a7890;font-size:18px;padding:0 4px;">✕</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">'+ballsHtml+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">'
+    +'<div style="background:#181b22;border:1px solid #222536;padding:9px;text-align:center;border-radius:3px;"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:18px;font-weight:700;color:#1ab8c4;">'+sum+'</div><div style="font-size:9px;color:#7a7890;margin-top:2px;">합계 (정상 100~175)</div></div>'
+    +'<div style="background:#181b22;border:1px solid #222536;padding:9px;text-align:center;border-radius:3px;"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:18px;font-weight:700;color:#c8920a;">홀'+odd+'짝'+(6-odd)+'</div><div style="font-size:9px;color:#7a7890;margin-top:2px;">홀짝 구성</div></div>'
+    +'<div style="background:#181b22;border:1px solid #222536;padding:9px;text-align:center;border-radius:3px;"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;color:#e8e6f0;">'+zones[0]+'-'+zones[1]+'-'+zones[2]+'</div><div style="font-size:9px;color:#7a7890;margin-top:2px;">구간 (1-15·16-30·31-45)</div></div>'
+    +'<div style="background:#181b22;border:1px solid #222536;padding:9px;text-align:center;border-radius:3px;"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;color:'+(maxCons>=3?'#d63030':'#e8e6f0')+';">'+(maxCons>=3?'3연번':'최대'+maxCons+'연번')+'</div><div style="font-size:9px;color:#7a7890;margin-top:2px;">연속 번호</div></div>'
+    +'</div>'
+    +'<div style="background:#181b22;border:1px solid #222536;padding:10px;margin-bottom:10px;border-radius:3px;">'
+    +'<div style="font-size:9px;font-weight:700;color:#7a7890;letter-spacing:1px;margin-bottom:8px;">▸ 패턴</div>'
+    +'<div style="display:flex;gap:5px;flex-wrap:wrap;">'+tagHtml+'</div>'
+    +'</div>'
+    +'<div style="background:#181b22;border:1px solid #222536;padding:10px;margin-bottom:10px;border-radius:3px;">'
+    +'<div style="font-size:9px;font-weight:700;color:#7a7890;letter-spacing:1px;margin-bottom:6px;">▸ '+mName+' 특성</div>'
+    +'<div style="font-size:10px;color:#e8e6f0;line-height:1.6;">'+machineDesc+'</div>'
+    +'</div>'
+    +'<div style="background:#181b22;border:1px solid #222536;padding:10px;margin-bottom:12px;border-radius:3px;">'
+    +'<div style="font-size:9px;font-weight:700;color:#7a7890;letter-spacing:1px;margin-bottom:8px;">▸ 과거 유사 번호 (최근 30회, 3개↑ 일치)</div>'
+    +simHtml
+    +'</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button id="det-star" style="flex:1;padding:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text);">☆ 찜하기</button>'
+    +'<button id="det-ok" style="flex:1;padding:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);">닫기</button>'
+    +'</div>'
+    +'</div>';
+  document.body.appendChild(div);
+  document.getElementById('det-close').onclick=function(){div.remove();};
+  document.getElementById('det-ok').onclick=function(){div.remove();};
+  document.getElementById('det-star').onclick=function(){
+    starFromDetail(slotIdx);
+    this.textContent='⭐ 찜됨';
+    this.style.borderColor='#ec4899';
+    this.style.color='#ec4899';
+  };
+}
+// 찜하기 (상세팝업에서 호출)
+function starFromDetail(slotIdx){
+  const saved=savedList.find(s=>s.nums&&s.nums.join(',')===allResults[slotIdx]?.nums.join(','));
+  if(saved){saved.starred=true;renderSaved();renderFav();}
+  else if(allResults[slotIdx]){
+    const {nums,bonus,machine}=allResults[slotIdx];
+    const now=new Date();
+    savedList.unshift({nums,bonus,machine,gameLabel:'찜',time:'20:38:48',id:Date.now(),selected:false,starred:true});
+    if(savedList.length>20)savedList=savedList.slice(0,20);
+    renderSaved();renderFav();
+  }
+}
+
+function updateHolderGame(){
+  // 현재 게임 홀더 업데이트
+  renderHolders();
+}
+
+function onGameDone(){
+  const nums=[...confirmed.slice(0,6)].sort((a,b)=>a-b);
+  const bonus=confirmed[6]||0;
+  const slot=gameQueue[curGameIdx].slotIdx;
+  allResults[slot]={nums,bonus,machine:curMachine};
+
+  if(curGameIdx+1 < gameQueue.length){
+    curGameIdx++;
+    // 다음 게임 호기로 전환
+    curMachine=gameQueue[curGameIdx].machine;
+    const prog=document.getElementById('game-prog');
+    if(prog) prog.textContent=`${curGameIdx+1}/${curGameCount}`;
+    const mNames={1:'1호기',2:'2호기',3:'3호기'};
+    setStatus(`${curGameIdx}게임 완료 → ${mNames[curMachine]} ${curGameIdx+1}게임 시작...`);
+    renderHolders();
+    timerH=setTimeout(()=>startOneGame(), 2500);
+  } else {
+    finishAll();
+  }
+  renderHolders();
+}
+
+function finishAll(){
+  drawPhase='idle';
+  airOn=false;ringOn=false;
+  if(ringBarT)clearInterval(ringBarT);
+  if(elapsedTimer){clearInterval(elapsedTimer);elapsedTimer=null;}
+  document.getElementById('dot').style.background='var(--green)';
+  setPHL('추첨 완료!');
+  setStatus(`전체 ${curGameCount}게임 완료 ✓`);
+  document.getElementById('sb').disabled=false;
+  document.getElementById('sb').textContent='▶ 추첨 시작';
+  document.getElementById('game-prog').textContent='';
+  // 결과 저장 → 목록에 추가
+  saveResults();
+  // 리포트 생성
+  generateReport();
+}
+
+// ═══════════════════════════════════════════════
+// 저장 번호 목록
+// ═══════════════════════════════════════════════
+let savedList = [];  // [{nums,bonus,machine,gameLabel,time}]
+
+function saveResults(){
+  const mNames={1:'1호기',2:'2호기',3:'3호기'};
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const queue=gameQueue.length>0?gameQueue:buildGameQueue();
+  const now=new Date();
+  const timeStr=gameStartTime?fmtStartTime(gameStartTime):'--:--:--';
+  const elapsedStr=gameStartTime?fmtElapsed(Date.now()-gameStartTime.getTime()):'';
+
+  queue.forEach(({machine,slotIdx},gi)=>{
+    const res=allResults[slotIdx];
+    if(!res) return;
+    if(savedList.length>=20) savedList.shift(); // 20개 초과시 가장 오래된 것 제거
+    savedList.push({
+      nums:res.nums,
+      bonus:res.bonus,
+      machine,
+      gameLabel:`${mNames[machine]} ${gi+1}게임`,
+      time:timeStr, elapsed:elapsedStr,
+      id:Date.now()+gi,
+      selected:false
+    });
+  });
+  renderSaved();
+}
+
+function renderSaved(){
+  const list=document.getElementById('saved-list');
+  const cnt=document.getElementById('saved-count');
+  if(!list) return;
+  cnt.textContent=`${savedList.length} / 20`;
+
+  if(!savedList.length){
+    list.innerHTML='<div class="saved-empty">추첨 후 번호가 여기에 자동으로 저장됩니다 (최대 20조합)</div>';
+    return;
+  }
+
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const mColorsBorder={1:'rgba(26,184,196,.5)',2:'rgba(224,96,48,.5)',3:'rgba(42,159,82,.5)'};
+
+  let rows='';
+  savedList.forEach(function(s,i){
+    let bhtml='';
+    s.nums.forEach(function(n){
+      bhtml+='<div class="svball" style="background:'+bc(n)+'">'+(n<10?'0'+n:n)+'</div>';
+    });
+    const bonusHtml='<span class="sv-plus">+</span><div class="svball bns" style="background:'+bc(s.bonus)+'">'+(s.bonus<10?'0'+s.bonus:s.bonus)+'</div>';
+    const tags=quickTags(s.nums);
+    let tagHtml='';
+    tags.forEach(function(t){
+      tagHtml+='<span class="sv-tag" style="color:'+t.color+';border-color:'+t.color+'44;background:'+t.color+'11">'+t.text+'</span>';
+    });
+    const bgCol=s.selected?'rgba(26,184,196,.04)':'var(--bg2)';
+    const selCls=s.selected?' selected':'';
+    const chk=s.selected?'checked':'';
+    const star=s.starred?'⭐':'☆';
+    rows+='<div class="saved-row'+selCls+'" style="border-left-color:'+mColorsBorder[s.machine]+';background:'+bgCol+';" id="srow-'+s.id+'" onclick="showLottoDetail('+s.id+')" style="cursor:pointer;">';
+    rows+='<input type="checkbox" class="sv-check" '+chk+' onclick="event.stopPropagation()" onchange="toggleSelect('+s.id+',this.checked)">';
+    rows+='<div class="sv-idx">'+(i+1)+'</div>';
+    rows+='<div class="sv-machine" style="color:'+mColors[s.machine]+'">'+s.gameLabel+'</div>';
+    rows+='<div class="sv-balls">'+bhtml+bonusHtml+'</div>';
+    rows+='<div class="sv-tags">'+tagHtml+'</div>';
+    rows+='<div class="sv-meta">'+s.time+(s.elapsed?' · '+s.elapsed:'')+'</div>';
+    rows+='<span onclick="event.stopPropagation();toggleStar('+s.id+')" style="cursor:pointer;font-size:14px;padding:0 3px;">'+star+'</span>';
+    rows+='<button class="sv-del" onclick="event.stopPropagation();deleteOne('+s.id+')">✕</button>';
+    rows+='</div>';
+  });
+  list.innerHTML=rows;
+}
+
+function quickTags(nums){
+  const tags=[];
+  const sorted=[...nums].sort((a,b)=>a-b);
+  // 연번
+  let max=1,cur=1;
+  for(let i=1;i<sorted.length;i++){if(sorted[i]===sorted[i-1]+1)cur++;else cur=1;if(cur>max)max=cur;}
+  if(max>=3) tags.push({text:'3연번',color:'#d63030'});
+  else if(max>=2) tags.push({text:'연번',color:'#c8920a'});
+  // 구간
+  const z=[0,0,0]; sorted.forEach(n=>z[n<=15?0:n<=30?1:2]++);
+  if(Math.max(...z)>=4) tags.push({text:'구간몰림',color:'#1ab8c4'});
+  // 합계
+  const sum=sorted.reduce((a,b)=>a+b,0);
+  if(sum<100) tags.push({text:'합'+sum+'↓',color:'#8b5cf6'});
+  else if(sum>165) tags.push({text:'합'+sum+'↑',color:'#ec4899'});
+  else tags.push({text:'합'+sum,color:'#7a7890'});
+  // 이월
+  if(LALL.length>0){const last=LALL[0].nums;const c=sorted.filter(n=>last.includes(n));if(c.length>0) tags.push({text:'이월'+c.length,color:'#c8920a'});}
+  return tags;
+}
+
+function toggleSelect(id, checked){
+  const item=savedList.find(s=>s.id===id);
+  if(item) item.selected=checked;
+  renderSaved();
+}
+function selectAllSaved(){
+  const allChecked=savedList.every(s=>s.selected);
+  savedList.forEach(s=>s.selected=!allChecked);
+  renderSaved();
+}
+function deleteSelected(){
+  savedList=savedList.filter(s=>!s.selected);
+  renderSaved();
+}
+function deleteOne(id){
+  savedList=savedList.filter(s=>s.id!==id);
+  renderSaved();
+}
+function deleteAll(){
+  if(!savedList.length) return;
+  if(confirm(`저장된 번호 ${savedList.length}개를 모두 삭제할까요?`)){
+    savedList=[];
+    renderSaved();
+  }
+}
+
+// 게임 큐 생성
+function buildGameQueue(){
+  if(curGameCount===1){
+    // 1게임: 선택한 호기 1게임
+    return [{machine:curMachine,slotIdx:0}];
+  } else {
+    // 3/6/9게임: 1·2·3호기 각 perMachine게임씩
+    const perMachine=curGameCount/3;
+    const queue=[];
+    for(let m=1;m<=3;m++){
+      for(let g=0;g<perMachine;g++){
+        queue.push({machine:m, slotIdx:(m-1)*perMachine+g});
+      }
+    }
+    return queue;
+  }
+}
+
+let gameQueue=[];  // [{machine, slotIdx}]
+let gameStartTime=null;   // 게임 시작 시각 (Date)
+let gameElapsed=0;        // 경과 ms
+let elapsedTimer=null;    // 경과 시간 인터벌
+
+function startAll(){
+  if(drawPhase!=='idle')return;
+  drawPhase='running';
+  allResults=new Array(curGameCount).fill(null);
+  curGameIdx=0;
+  gameQueue=buildGameQueue();
+  curMachine=gameQueue[0].machine;  // 첫 게임 호기로 설정
+  document.getElementById('sb').disabled=true;
+  document.getElementById('sb').textContent='추첨 중...';
+  document.getElementById('dot').style.cssText='width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--cyan);box-shadow:0 0 5px var(--cyan);animation:pd 1.2s infinite;';
+  document.getElementById('game-prog').textContent=`1/${curGameCount}`;
+  renderHolders();
+  startOneGame();
+}
+
+function startOneGame(){
+  // 물리 상태 초기화
+  confirmed=[]; nOut=0; ringAng=0; capCool=0; ringPause=0; airStr=0; airDip=1;
+  ringCaps=[{n:null,closed:false},{n:null,closed:false},{n:null,closed:false},{n:null,closed:false}];
+  tubeBalls=[];
+  airOn=false; ringOn=false;
+  spawnBalls();
+  for(let i=0;i<4;i++){
+    const e=document.getElementById('rc'+i);if(e)e.className='cap';
+    const r=document.getElementById('rv'+i);if(r)r.textContent='—';
+  }
+  // ── 게임 타이머 시작 (매 게임마다 리셋) ──
+  if(elapsedTimer) clearInterval(elapsedTimer);
+  gameStartTime = new Date();
+  gameElapsed = 0;
+  elapsedTimer = setInterval(()=>{
+    gameElapsed = Date.now() - gameStartTime.getTime();
+    updateElapsedUI();
+  }, 100);
+  updateElapsedUI();
+  setPHL('대기 중'); setStatus(`게임 ${curGameIdx+1} — 7초 대기...`);
+  runT(7000,'대기',()=>{
+    airOn=true;airStr=0;
+    setPHL('에어믹스'); setStatus('공 혼합 중...');
+    runT(6000,'혼합',()=>{
+      ringOn=true;
+      const pfi2=document.getElementById('pfi');if(pfi2)pfi2.style.background='var(--red)';
+      setPHL('링 추첨'); setStatus('링캡 회전 — 포착 중...');
+      startRingBar();
+    });
+  });
+}
+
+function startRingBar(){
+  if(ringBarT)clearInterval(ringBarT);
+  let t=0;
+  ringBarT=setInterval(()=>{
+    if(!ringOn||nOut>=7){clearInterval(ringBarT);return;}
+    t+=100;const p=5000;
+    document.getElementById('pfi').style.width=((t%p)/p*100)+'%';
+    document.getElementById('ptsec').textContent=((p-(t%p))/1000).toFixed(1)+'s';
+  },100);
+}
+
+function resetAll(){
+  if(timerH)clearTimeout(timerH);
+  if(ringBarT)clearInterval(ringBarT);
+  if(elapsedTimer){clearInterval(elapsedTimer);elapsedTimer=null;}
+  gameStartTime=null; gameElapsed=0;
+  drawPhase='idle';airOn=false;ringOn=false;airStr=0;
+  confirmed=[];nOut=0;ringAng=0;capCool=0;ringPause=0;airDip=1;
+  ringCaps=[{n:null,closed:false},{n:null,closed:false},{n:null,closed:false},{n:null,closed:false}];
+  tubeBalls=[];spawnBalls();allResults=[];curGameIdx=0;
+  document.getElementById('sb').disabled=false;document.getElementById('sb').textContent='▶ 추첨 시작';
+  document.getElementById('dot').style.cssText='width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--muted2);';
+  const ge=document.getElementById('game-elapsed'); if(ge) ge.textContent='';
+  document.getElementById('game-prog').textContent='';
+  setPHL('대기 중');setStatus('');
+  const ptl2=document.getElementById('ptlab');if(ptl2)ptl2.textContent='-';const pts2=document.getElementById('ptsec');if(pts2)pts2.textContent='';
+  document.getElementById('pfi').style.width='0%';const pfi3=document.getElementById('pfi');if(pfi3)pfi3.style.background='var(--cyan)';
+  for(let i=0;i<4;i++){const e=document.getElementById('rc'+i);if(e)e.className='cap';const r=document.getElementById('rv'+i);if(r)r.textContent='—';}
+  renderHolders();
+  document.getElementById('report-empty').style.display='block';
+  document.getElementById('report-content').style.display='none';
+}
+
+function runT(ms,lbl,cb){
+  let e=0;const ptl=document.getElementById('ptlab');if(ptl)ptl.textContent=lbl;
+  const tick=()=>{e+=100;document.getElementById('pfi').style.width=Math.min(e/ms*100,100)+'%';document.getElementById('ptsec').textContent=Math.ceil((ms-e)/1000)+'s';if(e<ms)timerH=setTimeout(tick,100);else cb();};
+  timerH=setTimeout(tick,100);
+}
+function fmtElapsed(ms){
+  const s=Math.floor(ms/1000);
+  const m=Math.floor(s/60);
+  const sec=s%60;
+  const csec=Math.floor((ms%1000)/100);
+  if(m>0) return `${m}:${String(sec).padStart(2,'0')}.${csec}`;
+  return `${String(sec).padStart(2,'0')}.${csec}`;
+}
+function fmtStartTime(d){
+  const h=String(d.getHours()).padStart(2,'0');
+  const m=String(d.getMinutes()).padStart(2,'0');
+  const s=String(d.getSeconds()).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+function updateElapsedUI(){
+  const el=document.getElementById('game-elapsed');
+  if(!el||!gameStartTime) return;
+  el.textContent=`⏱ ${fmtStartTime(gameStartTime)} 시작 · 경과 ${fmtElapsed(gameElapsed)}`;
+}
+function setPHL(t){document.getElementById('phl').textContent=t;}
+function setStatus(t){const e=document.getElementById('pst');if(e){e.textContent=t;e.className='pst on';}}
+
+// ═══════════════════════════════════════════════
+// 리포트 생성
+// ═══════════════════════════════════════════════
+function generateReport(){
+  const mNames={1:'1호기',2:'2호기',3:'3호기'};
+  const mColors={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const mDescs={
+    1:'이월수 3~4주 연속 多, 동끝수 1~2개 동시출현, 구간몰림 심함, 연번·3연번 자주',
+    2:'꼴통기계. 대각이웃수 이월수, 1궁(1·10·19·28·37)·9궁(9·18·27·36·45) 강함',
+    3:'연번·3연번 자주, 구간몰림 있으나 멸구간 적어 번호 골고루 분포'
+  };
+
+  let html=`
+  <div class="report-header">
+    <div>
+      <div class="rh-machine" style="color:${mColors[curMachine]}">${mNames[curMachine]}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;">${mDescs[curMachine]}</div>
+    </div>
+    <div class="rh-date">${curGameCount}게임 · ${new Date().toLocaleDateString('ko-KR')}</div>
+  </div>`;
+
+  // 각 게임 카드
+  html+='<div class="report-games">';
+  allResults.forEach((res,gi)=>{
+    if(!res)return;
+    const tags=analyzeNumbers(res.nums,res.bonus,gi);
+    const bhtml=res.nums.map(n=>`<div class="rball" style="background:${bc(n)}">${n<10?'0'+n:n}</div>`).join('')
+      +`<div style="font-size:18px;color:var(--muted);margin:0 4px;">+</div>`
+      +`<div class="rball bonus-r" style="background:${bc(res.bonus)}">${res.bonus<10?'0'+res.bonus:res.bonus}</div>`;
+    const taghtml=tags.map(t=>`<span class="tag tag-${t.type}">${t.text}</span>`).join('');
+    html+=`
+    <div class="rg-card">
+      <div class="rg-title">${mNames[curMachine]} · ${gi+1}게임</div>
+      <div class="rg-balls">${bhtml}</div>
+      <div class="rg-tags">${taghtml}</div>
+      ${buildNumDetail(res.nums)}
+    </div>`;
+  });
+  html+='</div>';
+
+  // 전체 통합 분석
+  if(allResults.length>1){
+    html+=buildCombinedAnalysis();
+  }
+
+  // 과거 유사 번호 비교
+  html+=buildHistoryMatch();
+
+  document.getElementById('report-content').innerHTML=html;
+  document.getElementById('report-empty').style.display='none';
+  document.getElementById('report-content').style.display='block';
+}
+
+function analyzeNumbers(nums,bonus,gi){
+  const tags=[];
+  const sorted=[...nums].sort((a,b)=>a-b);
+
+  // 연번 체크
+  let consecCount=0, maxConsec=1, cur=1;
+  for(let i=1;i<sorted.length;i++){
+    if(sorted[i]===sorted[i-1]+1){cur++;maxConsec=Math.max(maxConsec,cur);}
+    else cur=1;
+  }
+  if(maxConsec>=3) tags.push({type:'red',text:'3연번'});
+  else if(maxConsec>=2) tags.push({type:'gold',text:'연번 포함'});
+
+  // 구간 분포
+  const z=[0,0,0];
+  sorted.forEach(n=>z[n<=15?0:n<=30?1:2]++);
+  const maxZ=Math.max(...z);
+  if(maxZ>=4) tags.push({type:'cyan',text:`구간몰림 (${['1-15','16-30','31-45'][z.indexOf(maxZ)]})`});
+  else if(z.includes(0)) tags.push({type:'muted',text:'멸구간 있음'});
+  else tags.push({type:'green',text:'균형 분포'});
+
+  // 홀짝
+  const odd=sorted.filter(n=>n%2===1).length;
+  if(odd>=5) tags.push({type:'muted',text:`홀${odd}짝${6-odd}`});
+  else if(odd<=1) tags.push({type:'muted',text:`홀${odd}짝${6-odd}`});
+  else tags.push({type:'muted',text:`홀${odd}짝${6-odd}`});
+
+  // 합계
+  const sum=sorted.reduce((a,b)=>a+b,0);
+  if(sum<100) tags.push({type:'cyan',text:`합계 ${sum} (저)`});
+  else if(sum>160) tags.push({type:'red',text:`합계 ${sum} (고)`});
+  else tags.push({type:'green',text:`합계 ${sum}`});
+
+  // 동끝수
+  const ends=sorted.map(n=>n%10);
+  const endSet=new Set(ends);
+  if(endSet.size<sorted.length-1) tags.push({type:'gold',text:'동끝수 포함'});
+
+  // 1궁/9궁 (2호기 특성)
+  const palace1=[1,10,19,28,37],palace9=[9,18,27,36,45];
+  const p1=sorted.filter(n=>palace1.includes(n)).length;
+  const p9=sorted.filter(n=>palace9.includes(n)).length;
+  if(p1>=2) tags.push({type:'cyan',text:`1궁 ${p1}개`});
+  if(p9>=2) tags.push({type:'cyan',text:`9궁 ${p9}개`});
+
+  // 이월수 (최근 회차와 비교)
+  if(LALL.length>0){
+    const last=LALL[0].nums;
+    const carry=sorted.filter(n=>last.includes(n));
+    if(carry.length>0) tags.push({type:'gold',text:`이월수 ${carry.join(',')} (${carry.length}개)`});
+  }
+
+  return tags;
+}
+
+function buildNumDetail(nums){
+  const sorted=[...nums].sort((a,b)=>a-b);
+  const zones=[[],[],[]];
+  sorted.forEach(n=>zones[n<=15?0:n<=30?1:2].push(n));
+  const zColors=['rgba(26,184,196,.8)','rgba(200,146,10,.8)','rgba(214,48,48,.8)'];
+  const zLabels=['1~15','16~30','31~45'];
+
+  let html=`<div style="display:flex;gap:4px;margin-top:8px;">`;
+  for(let i=0;i<3;i++){
+    const pct=zones[i].length/6*100;
+    html+=`<div style="flex:1;background:var(--bg3);border:1px solid var(--border);padding:5px;border-radius:2px;text-align:center;">
+      <div style="font-size:8px;color:var(--muted);margin-bottom:3px;">${zLabels[i]}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:${zColors[i]}">${zones[i].length}개</div>
+      <div style="height:2px;background:var(--border);margin-top:4px;border-radius:1px;"><div style="height:2px;width:${pct}%;background:${zColors[i]};border-radius:1px;"></div></div>
+      <div style="font-size:8px;color:var(--muted2);margin-top:2px;">${zones[i].join(' ')}</div>
+    </div>`;
+  }
+  html+='</div>';
+  return html;
+}
+
+function buildCombinedAnalysis(){
+  const allNums=allResults.flatMap(r=>r?r.nums:[]);
+  const freq={};
+  for(let n=1;n<=45;n++) freq[n]=0;
+  allNums.forEach(n=>freq[n]++);
+  const sorted=Object.entries(freq).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  let html=`<div class="card"><div class="sl">전체 ${curGameCount}게임 통합 분석</div>
+  <div class="analysis-grid">
+    <div class="ag-item"><div class="ag-label">총 번호 수</div><div class="ag-val">${allNums.length}개</div><div class="ag-sub">중복 포함</div></div>
+    <div class="ag-item"><div class="ag-label">유니크 번호</div><div class="ag-val">${new Set(allNums).size}개</div><div class="ag-sub">45개 중</div></div>
+    <div class="ag-item"><div class="ag-label">최빈 번호</div><div class="ag-val">${sorted[0]?sorted[0][0]:'—'}</div><div class="ag-sub">${sorted[0]?sorted[0][1]+'회 출현':''}</div></div>
+    <div class="ag-item"><div class="ag-label">평균 합계</div><div class="ag-val">${Math.round(allResults.filter(r=>r).reduce((s,r)=>s+r.nums.reduce((a,b)=>a+b,0),0)/allResults.filter(r=>r).length)}</div><div class="ag-sub">정상범위 100~175</div></div>
+  </div>
+  <div class="sl">게임별 출현 번호 (중복 제외)</div>
+  <div style="display:flex;gap:3px;flex-wrap:wrap;">`;
+  [...new Set(allNums)].sort((a,b)=>a-b).forEach(n=>{
+    html+=`<span style="display:inline-flex;width:26px;height:26px;border-radius:50%;background:${bc(n)};align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:#fff;">${n<10?'0'+n:n}</span>`;
+  });
+  html+='</div></div>';
+  return html;
+}
+
+function buildHistoryMatch(){
+  if(!LALL.length||!allResults.length)return '';
+  // 각 게임과 과거 번호 비교
+  let html=`<div class="card"><div class="sl">과거 당첨번호 유사도 (최근 30회)</div>`;
+  const recent=LALL.slice(0,30);
+
+  allResults.forEach((res,gi)=>{
+    if(!res)return;
+    let bestMatch={cnt:0,round:0,date:'',nums:[]};
+    recent.forEach(h=>{
+      const matched=res.nums.filter(n=>h.nums.includes(n));
+      if(matched.length>bestMatch.cnt) bestMatch={cnt:matched.length,round:h.round,date:h.date,nums:h.nums,matched};
+    });
+    if(bestMatch.cnt>=3){
+      const bhtml=bestMatch.nums.map(n=>{
+        const hit=bestMatch.matched.includes(n);
+        return`<span class="sball" style="background:${bc(n)};${hit?'':' opacity:.4;'}">${n<10?'0'+n:n}</span>`;
+      }).join('');
+      html+=`<div class="match-row">
+        <div class="match-cnt">${gi+1}게임</div>
+        <div style="font-size:9px;color:var(--muted);width:50px;">${bestMatch.round}회</div>
+        <div style="font-size:9px;color:var(--cyan);margin-right:8px;font-family:'IBM Plex Mono',monospace;font-weight:700;">${bestMatch.cnt}개 일치</div>
+        <div style="display:flex;gap:2px;">${bhtml}</div>
+        <div style="font-size:9px;color:var(--muted);margin-left:auto;">${bestMatch.date}</div>
+      </div>`;
+    }
+  });
+  html+='</div>';
+  return html;
+}
+
+// ═══════════════════════════════════════════════
+// 렌더링
+// ═══════════════════════════════════════════════
+function drawBall(x,y,n,col,r,alpha){
+  alpha=alpha===undefined?1:alpha;
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);
+  ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=4;
+  const g=ctx.createRadialGradient(-r*.22,-r*.3,r*.08,0,0,r);
+  g.addColorStop(0,li(col,65));g.addColorStop(.4,li(col,18));
+  g.addColorStop(.82,col);g.addColorStop(1,da(col,32));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+  if(alpha>.4){
+    ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.arc(-r*.22,-r*.3,r*.35,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.92)';ctx.font='bold '+(r<12?7:r<16?8:9)+'px IBM Plex Mono';
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n<10?'0'+n:n,0,.5);
+  }
+  ctx.restore();
+}
+
+function render(ts){
+  const dt=Math.min(ts-lastTS,50);lastTS=ts;
+  physStep(dt);ringStep(dt);
+
+  ctx.clearRect(0,0,W,H);ctx.fillStyle='#090a0e';ctx.fillRect(0,0,W,H);
+
+  const HX=HX_POS;
+  // 결과 홀더 (7개 원형)
+  ctx.fillStyle='#3e3d58';ctx.font='bold 7px IBM Plex Mono';ctx.textAlign='center';
+  ctx.fillText('RESULT',HX,H_TOP2-6);
+  for(let i=0;i<7;i++){
+    const hy=H_TOP2+22+i*H_GAP2;
+    const p=tubeBalls[i];
+    ctx.fillStyle=p?'rgba(20,24,38,.95)':'rgba(14,16,26,.85)';
+    ctx.strokeStyle=p?'rgba(26,184,196,.6)':'rgba(50,58,88,.5)';
+    ctx.lineWidth=p?2:1.5;
+    ctx.beginPath();ctx.arc(HX,hy,22,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=p?'rgba(26,184,196,.25)':'rgba(40,48,72,.4)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(HX,hy,17,0,Math.PI*2);ctx.stroke();
+    if(p) drawBall(HX,hy,p.n,p.color,18);
+    else{ctx.fillStyle='rgba(60,65,95,.5)';ctx.font='bold 8px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i<6?(i+1):'★',HX,hy);}
+  }
+  // 연결관
+  const connY=CY+Math.sin(CCAP_ANG)*(CR-20);
+  ctx.strokeStyle='rgba(28,32,50,.88)';ctx.lineWidth=14;ctx.beginPath();ctx.moveTo(HX,connY);ctx.lineTo(CX-CR+20,connY);ctx.stroke();
+  ctx.strokeStyle='rgba(14,16,24,.92)';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(HX,connY);ctx.lineTo(CX-CR+20,connY);ctx.stroke();
+
+  // 챔버 배경
+  const cbg=ctx.createRadialGradient(CX-18,CY-25,10,CX,CY,CR);
+  cbg.addColorStop(0,'#1c2030');cbg.addColorStop(.5,'#12141e');cbg.addColorStop(1,'#0a0b10');
+  ctx.fillStyle=cbg;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.fill();
+
+  // 에어
+  if(airStr>0){
+    const s=airStr*airDip,t=ts/1000;
+    for(let si=0;si<6;si++){
+      const ba=-t*2.2+si*(Math.PI*2/6);
+      ctx.strokeStyle=`rgba(26,184,196,${s*0.05})`;ctx.lineWidth=1.2;ctx.beginPath();let first=true;
+      for(let step=0;step<=20;step++){
+        const a=ba+step*.22,r2=(CR*.15)+step*(CR*.038);if(r2>CR*.92)break;
+        const px=CX+Math.cos(a)*r2,py=CY+Math.sin(a)*r2;
+        if(first){ctx.moveTo(px,py);first=false;}else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+    [[AH1X,AH1Y]].forEach(([ax,ay])=>{
+      for(let i=0;i<8;i++){
+        const age=((ts/3.5+i*55)%(CR*1.3))/CR;
+        const sp=age*(Math.PI*3+i),sr=age*CR*.35;
+        const px=ax+Math.cos(sp)*sr+(CX-ax)*age*.3,py=ay-age*CR;
+        if(py<CY-CR||py>CY+CR)continue;
+        if((px-CX)**2+(py-CY)**2>CR*CR)continue;
+        ctx.fillStyle=`rgba(26,184,196,${Math.max(0,s*.24*(1-age*.7)).toFixed(3)})`;
+        ctx.beginPath();ctx.arc(px,py,2,0,Math.PI*2);ctx.fill();
+      }
+    });
+    const gw=ctx.createRadialGradient(CX,CY+CR*.5,20,CX,CY,CR);
+    gw.addColorStop(0,`rgba(26,184,196,${s*.1})`);gw.addColorStop(.5,`rgba(26,184,196,${s*.03})`);gw.addColorStop(1,`rgba(26,184,196,${s*.06})`);
+    ctx.fillStyle=gw;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.fill();
+  }
+
+  // 공
+  ctx.save();ctx.beginPath();ctx.arc(CX,CY,CR-2,0,Math.PI*2);ctx.clip();
+  balls.forEach(b=>{
+    if(b.state!=='free')return;
+    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    const ta=Math.min(0.35,spd/20*0.35)*airStr;
+    if(ta>0.04&&b.trail.length>1){
+      for(let t2=0;t2<b.trail.length-1;t2++)
+        drawBall(b.trail[t2].x,b.trail[t2].y,b.n,b.color,BR*.82,(t2+1)/b.trail.length*ta);
+    }
+    drawBall(b.x,b.y,b.n,b.color,BR,1);
+  });
+  ctx.restore();
+
+  // 챔버 테두리
+  ctx.strokeStyle='rgba(13,15,23,.98)';ctx.lineWidth=9;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(36,40,64,.5)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(CX,CY,CR,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(CX-16,CY-22,CR*.79,Math.PI*1.05,Math.PI*1.63);ctx.stroke();
+
+  // 외부 드럼링
+  const drumIn=CR+4,drumOut=CR+DRUM_T+10,drumMid=(drumIn+drumOut)/2;
+  ctx.fillStyle='rgba(200,210,240,.04)';
+  ctx.beginPath();ctx.arc(CX,CY,drumOut,0,Math.PI*2,false);ctx.arc(CX,CY,drumIn,0,Math.PI*2,true);ctx.fill('evenodd');
+  ctx.strokeStyle='rgba(180,190,220,.35)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(CX,CY,drumOut,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='rgba(180,190,220,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(CX,CY,drumIn,0,Math.PI*2);ctx.stroke();
+  for(let i=0;i<16;i++){
+    const a=ringAng+i*(Math.PI*2/16);
+    ctx.strokeStyle='rgba(200,210,240,.10)';ctx.lineWidth=.8;
+    ctx.beginPath();ctx.moveTo(CX+Math.cos(a)*(drumIn+1),CY+Math.sin(a)*(drumIn+1));ctx.lineTo(CX+Math.cos(a)*(drumOut-1),CY+Math.sin(a)*(drumOut-1));ctx.stroke();
+  }
+
+  // 볼캡 (반구형)
+  for(let ci=0;ci<NCAPS;ci++){
+    const capAng=ringAng+ci*(Math.PI/2);
+    const capX=CX+Math.cos(capAng)*drumMid,capY=CY+Math.sin(capAng)*drumMid;
+    const hasB=ringCaps[ci].n!==null;
+    const aligned=aDiff(capAng,CCAP_ANG)<ALIGN_TOL;
+    const isOpen=aligned&&airStr>0&&!ringCaps[ci].closed;
+    const cupR=(drumOut-drumIn)*0.55;
+    ctx.save();ctx.translate(capX,capY);ctx.rotate(capAng+Math.PI/2);
+    ctx.beginPath();ctx.arc(0,0,cupR,0,Math.PI,false);ctx.closePath();
+    const cg=ctx.createRadialGradient(-cupR*.2,-cupR*.2,cupR*.1,0,0,cupR);
+    if(hasB){cg.addColorStop(0,'rgba(50,200,220,.55)');cg.addColorStop(1,'rgba(10,60,80,.85)');}
+    else if(isOpen){cg.addColorStop(0,'rgba(220,170,30,.45)');cg.addColorStop(1,'rgba(80,50,5,.75)');}
+    else{cg.addColorStop(0,'rgba(200,215,240,.18)');cg.addColorStop(1,'rgba(20,24,38,.80)');}
+    ctx.fillStyle=cg;ctx.fill();
+    ctx.strokeStyle=hasB?'rgba(26,184,196,.9)':isOpen?'rgba(200,146,10,.8)':'rgba(180,195,230,.3)';
+    ctx.lineWidth=hasB?2:isOpen?1.8:1;
+    ctx.beginPath();ctx.arc(0,0,cupR,0,Math.PI,false);ctx.closePath();ctx.stroke();
+    ctx.strokeStyle=hasB?'rgba(26,184,196,.6)':isOpen?'rgba(200,146,10,.5)':'rgba(180,195,230,.15)';
+    ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-cupR,0);ctx.lineTo(cupR,0);ctx.stroke();
+    if(hasB) drawBall(0,cupR*.1,ringCaps[ci].n,bc(ringCaps[ci].n),BR*.75);
+    ctx.restore();
+    if(isOpen&&!hasB&&airStr>0){const pulse=((ts%500)/500);ctx.strokeStyle=`rgba(200,146,10,${0.4*(1-pulse)})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(capX,capY,cupR*(1.5+pulse*1.8),0,Math.PI*2);ctx.stroke();}
+  }
+
+  // 챔버캡
+  const ccX=CX+Math.cos(CCAP_ANG)*(CR+2),ccY=CY+Math.sin(CCAP_ANG)*(CR+2);
+  ctx.fillStyle=`rgba(26,184,196,${ringOn?.22:.06})`;ctx.beginPath();ctx.arc(ccX,ccY,10,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=ringOn?'rgba(26,184,196,.8)':'rgba(36,40,60,.4)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ccX,ccY,10,0,Math.PI*2);ctx.stroke();
+
+  // 에어홀
+  ctx.fillStyle=`rgba(26,184,196,${0.12*airStr})`;ctx.beginPath();ctx.arc(AH1X,AH1Y,AH_R,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=airStr>0?'rgba(26,184,196,.55)':'rgba(36,40,60,.3)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(AH1X,AH1Y,AH_R,0,Math.PI*2);ctx.stroke();
+  if(airStr>0.05){
+    ctx.fillStyle='rgba(26,184,196,.65)';ctx.font='bold 6px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('AH',AH1X,AH1Y);
+    for(let i=0;i<5;i++){const a=(ts/42+i*72)*Math.PI/180;ctx.strokeStyle=`rgba(26,184,196,${0.28*airStr})`;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(AH1X,AH1Y);ctx.lineTo(AH1X+Math.cos(a)*(AH_R-2),AH1Y+Math.sin(a)*(AH_R-2));ctx.stroke();}
+  }
+
+  // 베이스
+  const mCol={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'}[curMachine];
+  ctx.fillStyle='#12151e';rr(CX-CR,CY+CR-4,CR*2,24,5);ctx.fill();
+  ctx.strokeStyle='#1c1f2e';ctx.lineWidth=1;rr(CX-CR,CY+CR-4,CR*2,24,5);ctx.stroke();
+  ctx.fillStyle='#0c0d12';rr(CX-CR+12,CY+CR+3,CR*2-24,11,3);ctx.fill();
+  ctx.fillStyle=airStr>0?mCol:'#3c3b58';
+  ctx.font='bold 7px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  const mN={1:'1호기',2:'2호기',3:'3호기'}; ctx.fillText(`VENUS — ${mN[curMachine]} · ${curGameIdx+1}/${curGameCount}게임`,CX,CY+CR+12);
+
+  if(ringOn){ctx.fillStyle='rgba(26,184,196,.65)';ctx.font='8px IBM Plex Mono';ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillText('⟳ 7.5RPM',12,H-10);}
+  if(airStr>0){ctx.fillStyle='rgba(26,184,196,.5)';ctx.font='8px IBM Plex Mono';ctx.textAlign='right';ctx.textBaseline='alphabetic';ctx.fillText(`AIR ${(airStr*100).toFixed(0)}%`,W-10,H-10);}
+
+  animId=requestAnimationFrame(render);
+}
+
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+
+// ═══════════════════════════════════════════════
+// 통계/과거 페이지
+// ═══════════════════════════════════════════════
+function setHist(n,el){
+  document.querySelectorAll('#htabs .ptab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  const data=n?LALL.slice(0,n):LALL;
+  let html='';
+  data.forEach(h=>{
+    const bhtml=h.nums.map(n=>`<span class="sball" style="background:${bc(n)}">${n<10?'0'+n:n}</span>`).join('');
+    const bonus=`<span class="sball bonus-b" style="background:${bc(h.bonus)}">${h.bonus<10?'0'+h.bonus:h.bonus}</span>`;
+    html+=`<div class="hist-row"><div class="hist-round">${h.round}회</div><div class="hist-date">${h.date}</div><div class="hist-balls">${bhtml}<span style="color:var(--muted);margin:0 3px;">+</span>${bonus}</div></div>`;
+  });
+  document.getElementById('hist-out').innerHTML=html;
+}
+
+function setLottoStat(n,el){
+  document.querySelectorAll('#stabs .ptab').forEach(t=>t.classList.remove('on'));
+  if(el) el.classList.add('on');
+  const data=n?LALL.slice(0,n):LALL;
+  if(!data.length)return;
+
+  // 요약
+  const freq={};
+  for(let i=1;i<=45;i++) freq[i]=0;
+  data.forEach(h=>h.nums.forEach(n=>freq[n]++));
+  const maxF=Math.max(...Object.values(freq));
+  const minF=Math.min(...Object.values(freq));
+  const topN=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0]).join(', ');
+  const coldN=Object.entries(freq).sort((a,b)=>a[1]-b[1]).slice(0,5).map(e=>e[0]).join(', ');
+
+  document.getElementById('stat-summary').innerHTML=`
+    <div class="stat-card"><div class="sc-val">${data.length}</div><div class="sc-lab">분석 회차</div></div>
+    <div class="stat-card"><div class="sc-val">${maxF}</div><div class="sc-lab">최다 출현</div></div>
+    <div class="stat-card"><div class="sc-val">${minF}</div><div class="sc-lab">최소 출현</div></div>
+    <div class="stat-card"><div class="sc-val" style="font-size:12px;">${topN}</div><div class="sc-lab">핫넘버 TOP5</div></div>
+    <div class="stat-card"><div class="sc-val" style="font-size:12px;">${coldN}</div><div class="sc-lab">콜드넘버 TOP5</div></div>`;
+
+  document.getElementById('stat-label').textContent=`번호별 출현 빈도 — ${data.length}회`;
+
+  // 번호 빈도 그리드
+  let html='';
+  for(let n=1;n<=45;n++){
+    const f=freq[n],pct=Math.round(f/maxF*100);
+    html+=`<div class="freq-cell"><div class="fc-num" style="color:${bc(n)}">${n<10?'0'+n:n}</div><div class="fc-cnt">${f}</div><div class="fc-bar"><div style="height:100%;width:${pct}%;background:${bc(n)};border-radius:1px;"></div></div></div>`;
+  }
+  document.getElementById('freq-grid').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════
+// 페이지 전환
+// ═══════════════════════════════════════════════
+function showPage(name){
+  if(name==='fav'){renderFav();}
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('page-'+name).classList.add('on');
+  event.target.classList.add('on');
+}
+
+
+// ── 찜 기능 ──
+function toggleStar(id){
+  id=Number(id);
+  const s=savedList.find(x=>x.id===id);
+  if(s){s.starred=!s.starred;renderSaved();renderFav();}
+}
+function renderFav(){
+  const el=document.getElementById('fav-list');if(!el)return;
+  const favs=savedList.filter(s=>s.starred);
+  if(!favs.length){el.innerHTML='<p style="color:var(--muted);font-size:11px;padding:20px;text-align:center;">저장 목록에서 ★ 찜하세요</p>';return;}
+  const mColMap={1:'var(--m1)',2:'var(--m2)',3:'var(--m3)'};
+  const mNameMap={1:'1호기',2:'2호기',3:'3호기'};
+  let out='';
+  favs.forEach(function(s,i){
+    const mCol=mColMap[s.machine]||'var(--muted)';
+    const mName=mNameMap[s.machine]||'?';
+    let bhtml='';
+    [...s.nums].sort(function(a,b){return a-b;}).forEach(function(n){
+      bhtml+='<span style="display:inline-flex;width:28px;height:28px;border-radius:50%;background:'+bc(n)+';align-items:center;justify-content:center;font-family:\'IBM Plex Mono\',monospace;font-size:9px;font-weight:700;color:#fff;">'+(n<10?'0'+n:n)+'</span>';
+    });
+    const tagArr=analyzeNumbers(s.nums,s.bonus,0).slice(0,3);
+    let tags='';
+    tagArr.forEach(function(t){
+      const tc=t.type==='cyan'?'var(--cyan)':t.type==='gold'?'var(--gold)':t.type==='red'?'var(--red)':'var(--muted)';
+      tags+='<span style="padding:1px 5px;border-radius:8px;font-size:8px;font-weight:600;color:'+tc+';border:1px solid currentColor;opacity:.8;">'+t.text+'</span>';
+    });
+    out+='<div onclick="showLottoDetail('+s.id+')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid #ec4899;margin-bottom:4px;cursor:pointer;">';
+    out+='<span style="color:#ec4899;">⭐</span>';
+    out+='<span style="font-size:9px;color:'+mCol+';font-family:\'IBM Plex Mono\',monospace;width:28px;">'+mName+'</span>';
+    out+='<div style="flex:1;display:flex;gap:2px;">'+bhtml+'</div>';
+    out+='<div style="display:flex;gap:2px;flex-wrap:wrap;">'+tags+'</div>';
+    out+='<span onclick="event.stopPropagation();toggleStar('+s.id+')" style="cursor:pointer;font-size:12px;color:var(--muted);">✕</span>';
+    out+='</div>';
+  });
+  el.innerHTML=out;
+}
+function initUI(){
+  renderHolders();
+  setHist(20,document.querySelector('#htabs .ptab'));
+  setLottoStat(20,document.querySelector('#stabs .ptab'));
+  spawnBalls();
+  animId=requestAnimationFrame(render);
+}
+
+// style for dot animation
+const dotStyle=document.createElement('style');
+dotStyle.textContent='@keyframes pd{0%,100%{opacity:1}50%{opacity:.3}}';
+document.head.appendChild(dotStyle);
+initUI();
+setTimeout(autoUpdateLotto, 800);
+</script>
+</body>
+</html>

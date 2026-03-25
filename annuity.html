@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>연금복권 720+ 토파즈</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#090a0e;--bg2:#111318;--bg3:#181b22;--border:#222536;--text:#e8e6f0;--muted:#7a7890;--muted2:#3e3d58;--cyan:#1ab8c4;--gold:#c8920a;--red:#d63030;--green:#2a9f52;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--bg);color:var(--text);}
+.nav{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);}
+.nav-tab{padding:11px 16px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;}
+.nav-tab.on{color:var(--gold);border-bottom-color:var(--gold);}
+.page{display:none;max-width:1100px;margin:0 auto;padding:14px 12px 60px;}
+.page.on{display:block;}
+.card{background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:10px;}
+.sl{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+
+/* 결과 */
+.result-row{display:flex;gap:7px;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--border);padding:14px;margin-bottom:10px;flex-wrap:wrap;}
+.dbox{width:48px;height:48px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:700;border:2px solid var(--border);background:var(--bg3);color:var(--muted);transition:all .3s;}
+.dbox.done{color:#fff;border-color:transparent;animation:pop .3s cubic-bezier(.34,1.56,.64,1);}
+@keyframes pop{0%{transform:scale(1.3)}100%{transform:scale(1)}}
+.sep{font-size:16px;color:var(--muted2);}
+
+/* 기계 */
+.machines-row{display:flex;gap:5px;justify-content:center;margin-bottom:8px;overflow-x:auto;}
+.m-unit{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.m-lbl{font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.m-cd{font-size:10px;height:14px;font-family:'IBM Plex Mono',monospace;color:var(--cyan);font-weight:700;}
+canvas.mc{display:block;}
+
+/* 카운트다운 */
+.countdown-bar{background:var(--bg2);border:1px solid var(--border);padding:10px 14px;margin-bottom:10px;}
+.cd-row{display:flex;align-items:center;gap:10px;}
+.cd-label{font-size:10px;font-weight:700;color:var(--muted);width:60px;}
+.cd-track{flex:1;height:3px;background:var(--border);border-radius:2px;}
+.cd-fill{height:3px;background:var(--gold);border-radius:2px;transition:width .1s linear;}
+.cd-time{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);width:40px;text-align:right;}
+.cd-status{font-size:10px;color:var(--muted);margin-top:5px;min-height:13px;}
+.cd-status.on{color:var(--cyan);}
+
+/* 버튼 */
+.btns{display:flex;gap:7px;justify-content:center;margin-top:8px;}
+.btn{padding:9px 18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);font-family:'IBM Plex Sans KR',sans-serif;}
+.btn-g{background:var(--gold);color:#000;border-color:var(--gold);}
+.btn-g:hover{background:#a07500;}
+.btn-n{background:var(--bg3);color:var(--text);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+/* 게임 수 선택 */
+.game-sel{display:flex;gap:5px;justify-content:center;margin-bottom:8px;}
+.gbtn{padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:'IBM Plex Mono',monospace;transition:all .15s;}
+.gbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(200,146,10,.1);}
+.gbtn:hover{color:var(--text);border-color:var(--muted);}
+/* 저장 목록 + 찜 */
+.saved-section{max-width:1100px;margin:0 auto;padding:0 12px 50px;}
+.saved-header{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);margin-bottom:6px;}
+.saved-title{font-size:11px;font-weight:700;flex:1;}
+.saved-cnt{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gold);background:rgba(200,146,10,.12);padding:2px 8px;border-radius:8px;}
+.saved-btns{display:flex;gap:5px;}
+.sv-btn{padding:4px 9px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);}
+.sv-btn:hover{color:var(--text);border-color:var(--muted);}
+.sv-btn.del{color:var(--red);border-color:rgba(214,48,48,.3);}
+.sv-btn.del:hover{background:rgba(214,48,48,.1);}
+.saved-list{display:flex;flex-direction:column;gap:4px;}
+.sv-row{display:flex;align-items:center;gap:7px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--border);transition:all .15s;}
+.sv-row:hover{border-color:var(--muted2);}
+.sv-row.checked{border-left-color:var(--gold);background:rgba(200,146,10,.04);}
+.sv-row.starred{border-left-color:#ec4899;}
+.sv-chk{width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0;}
+.sv-idx{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted2);width:20px;text-align:center;flex-shrink:0;}
+.sv-jo{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;width:32px;flex-shrink:0;}
+.sv-nums{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;letter-spacing:2px;flex:1;}
+.sv-tags{display:flex;gap:3px;flex-wrap:wrap;}
+.sv-tag{padding:1px 5px;border-radius:8px;font-size:8px;font-weight:600;border:1px solid;}
+.sv-star{cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;transition:transform .15s;}
+.sv-star:hover{transform:scale(1.3);}
+.sv-del{padding:2px 7px;font-size:9px;cursor:pointer;border:1px solid rgba(214,48,48,.25);background:transparent;color:rgba(214,48,48,.5);flex-shrink:0;}
+.sv-del:hover{background:rgba(214,48,48,.12);color:var(--red);}
+.sv-time{font-size:8px;color:var(--muted2);white-space:nowrap;flex-shrink:0;}
+.saved-empty{text-align:center;padding:24px;color:var(--muted);font-size:11px;background:var(--bg2);border:1px solid var(--border);}
+/* 미출현 번호 */
+.missing-wrap{display:flex;flex-direction:column;gap:6px;margin-bottom:4px;}
+.missing-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;}
+.missing-pos{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);width:52px;flex-shrink:0;letter-spacing:1px;}
+.missing-nums{display:flex;gap:4px;flex-wrap:wrap;flex:1;}
+.miss-tag{padding:3px 7px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;border:1px solid;}
+.miss-none{font-size:9px;color:var(--muted);padding:3px 0;}
+/* 통계 개선 */
+.stat-section{margin-bottom:16px;}
+.stat-sec-title{font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.pos-wrap{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.pos-sec{background:var(--bg3);border:1px solid var(--border);padding:10px;}
+.pos-lbl{font-size:9px;color:var(--muted);margin-bottom:6px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;}
+.digit-bars{display:flex;gap:3px;align-items:flex-end;height:70px;}
+.digit-col{flex:1;display:flex;flex-direction:column;align-items:center;}
+.d-cnt{font-size:8px;color:var(--muted);margin-bottom:2px;min-height:9px;font-family:'IBM Plex Mono',monospace;}
+.d-fill{width:100%;border-radius:2px 2px 0 0;min-height:2px;transition:height .3s;}
+.d-num{font-size:9px;font-family:'IBM Plex Mono',monospace;margin-top:3px;font-weight:700;}
+.top-bar{background:var(--gold);}
+.mid-bar{background:var(--cyan);}
+.low-bar{background:var(--muted2);}
+.jo-row{display:flex;gap:6px;margin-top:4px;}
+.jo-item{flex:1;padding:10px 4px;text-align:center;background:var(--bg3);border:1px solid var(--border);border-radius:3px;}
+.jo-item.top{border-width:2px;}
+.jo-n{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;}
+.jo-c{font-size:9px;color:var(--muted);margin-top:3px;}
+.jo-bar{height:3px;border-radius:2px;margin-top:5px;}
+
+/* 과거/통계 */
+.ptabs{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;}
+.ptab{padding:4px 10px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);}
+.ptab.on{border-color:var(--gold);color:var(--gold);}
+.hist-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bg3);font-size:10px;}
+.hi-round{font-family:'IBM Plex Mono',monospace;color:var(--muted);width:38px;flex-shrink:0;}
+.hi-date{color:var(--muted2);width:82px;flex-shrink:0;}
+.hi-jo{font-family:'IBM Plex Mono',monospace;font-weight:700;width:28px;}
+.hi-nums{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;flex:1;letter-spacing:2px;}
+.sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+.sum-card{background:var(--bg3);border:1px solid var(--border);padding:9px;text-align:center;}
+.sv{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--cyan);}
+.sl2{font-size:8px;color:var(--muted);margin-top:2px;}
+.pos-wrap{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px;}
+.pos-sec{background:var(--bg3);border:1px solid var(--border);padding:6px;}
+.pos-lbl{font-size:8px;color:var(--muted);text-align:center;margin-bottom:4px;}
+.digit-bars{display:flex;gap:1px;align-items:flex-end;height:60px;}
+.digit-col{flex:1;display:flex;flex-direction:column;align-items:center;}
+.d-cnt{font-size:6px;color:var(--muted);margin-bottom:1px;min-height:7px;}
+.d-fill{width:100%;border-radius:1px 1px 0 0;min-height:2px;}
+.d-num{font-size:7px;font-family:'IBM Plex Mono',monospace;margin-top:1px;font-weight:700;}
+.top-bar{background:var(--gold);}
+.mid-bar{background:var(--cyan);}
+.low-bar{background:var(--muted2);}
+.jo-row{display:flex;gap:5px;margin-top:8px;}
+.jo-item{flex:1;padding:8px 4px;text-align:center;background:var(--bg3);border:1px solid var(--border);}
+.jo-item.top{border-color:var(--gold);background:rgba(200,146,10,.1);}
+.jo-n{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;}
+.jo-c{font-size:9px;color:var(--muted);margin-top:2px;}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-tab on" onclick="showPage('draw',this)">🎰 추첨</div>
+  <div class="nav-tab" onclick="showPage('history',this)">📋 과거 번호</div>
+  <div class="nav-tab" onclick="showPage('stat',this)">📈 통계</div>
+  <div class="nav-tab" onclick="showPage('fav',this)">⭐ 찜한번호</div>
+  <div style="margin-left:auto;display:flex;align-items:center;padding:0 12px;gap:6px;">
+    <span id="data-status" style="font-size:9px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">데이터 확인 중...</span>
+    <button onclick="autoUpdateData()" style="padding:3px 8px;font-size:9px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);">🔄</button>
+  </div>
+</nav>
+
+<!-- 추첨 페이지 -->
+<div class="page on" id="page-draw">
+  <div style="font-size:9px;letter-spacing:2px;color:var(--muted);padding:10px 0 6px;">TOPAZ DRAWING SYSTEM — AKANIS TECHNOLOGIES · 연금복권 720+</div>
+
+  <!-- 결과 -->
+  <div class="result-row">
+    <div style="font-size:9px;color:var(--muted);">1등</div>
+    <div class="dbox" id="d-jo">—</div>
+    <div class="sep">조</div>
+    <div class="dbox" id="d-0">—</div>
+    <div class="dbox" id="d-1">—</div>
+    <div class="dbox" id="d-2">—</div>
+    <div class="dbox" id="d-3">—</div>
+    <div class="dbox" id="d-4">—</div>
+    <div class="dbox" id="d-5">—</div>
+  </div>
+
+  <!-- 기계 7대 -->
+  <div class="machines-row" id="machines-row"></div>
+
+  <!-- 카운트다운 -->
+  <div class="countdown-bar">
+    <div class="cd-row">
+      <div class="cd-label" id="cd-label">대기</div>
+      <div class="cd-track"><div class="cd-fill" id="cd-fill" style="width:0%"></div></div>
+      <div class="cd-time" id="cd-time">—</div>
+    </div>
+    <div class="cd-status" id="cd-status">추첨 준비</div>
+  </div>
+
+  <div class="game-sel">
+    <div class="gbtn on" data-g="1" onclick="selectGames(1)">1게임</div>
+    <div class="gbtn" data-g="5" onclick="selectGames(5)">5게임</div>
+    <div class="gbtn" data-g="10" onclick="selectGames(10)">10게임</div>
+  </div>
+  <div style="text-align:center;font-size:9px;color:var(--muted);margin-bottom:6px;" id="game-desc">1게임 추첨</div>
+  <div class="btns">
+    <button class="btn btn-g" id="sb" onclick="startDraw()">▶ 추첨 시작</button>
+    <button class="btn btn-n" onclick="resetAll()">↺</button>
+  </div>
+</div>
+
+<!-- 저장 목록 (항상 노출) -->
+<div class="saved-section">
+  <div class="saved-header">
+    <div class="saved-title">📋 추첨 저장 목록</div>
+    <div class="saved-cnt" id="saved-cnt">0 / 20</div>
+    <div class="saved-btns">
+      <button class="sv-btn" onclick="selectAllSaved()">전체선택</button>
+      <button class="sv-btn" onclick="deleteSelected()">선택삭제</button>
+      <button class="sv-btn del" onclick="deleteAll()">전체삭제</button>
+    </div>
+  </div>
+  <div class="saved-list" id="saved-list">
+    <div class="saved-empty">추첨 완료 후 번호가 여기에 자동 저장됩니다 (최대 20게임)</div>
+  </div>
+</div>
+
+<!-- 과거 번호 -->
+<div class="page" id="page-history">
+  <div class="card">
+    <div class="sl">회차 범위</div>
+    <div class="ptabs" id="htabs">
+      <div class="ptab on" onclick="setHist(10,this)">10회</div>
+      <div class="ptab" onclick="setHist(20,this)">20회</div>
+      <div class="ptab" onclick="setHist(30,this)">30회</div>
+      <div class="ptab" onclick="setHist(60,this)">전체</div>
+    </div>
+    <div class="sum-grid" id="hist-sum"></div>
+    <div id="hist-list"></div>
+  </div>
+</div>
+
+<!-- 통계 -->
+<div class="page" id="page-stat">
+  <div class="card">
+    <div class="sl">분석 기간</div>
+    <div class="ptabs" id="stabs">
+      <div class="ptab on" onclick="setStat(10,this)">10회</div>
+      <div class="ptab" onclick="setStat(20,this)">20회</div>
+      <div class="ptab" onclick="setStat(30,this)">30회</div>
+      <div class="ptab" onclick="setStat(60,this)">전체</div>
+    </div>
+    <div class="sum-grid" id="stat-sum"></div>
+    <div class="stat-section">
+      <div class="stat-sec-title" id="stat-pos-label">📊 자리별 숫자 출현 빈도</div>
+      <div class="pos-wrap" id="stat-pos"></div>
+    </div>
+    <div class="stat-section">
+      <div class="stat-sec-title">🎯 조 출현 빈도</div>
+      <div class="jo-row" id="jo-stat"></div>
+    </div>
+    <div class="stat-section">
+      <div class="stat-sec-title">⚠️ 자리별 미출현 번호</div>
+      <div class="missing-wrap" id="missing-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 찜한 번호 -->
+<div class="page" id="page-fav">
+  <div class="card">
+    <div class="sl">⭐ 찜한 번호 목록</div>
+    <div id="fav-list"><div class="saved-empty" style="text-align:center;padding:28px;color:var(--muted);">저장 목록에서 ★ 버튼으로 찜하세요</div></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// 연금복권 720+ 토파즈 시뮬레이터 v3
+//
+// 실제 타이밍 (방송 측정):
+//   버튼 → 6초 대기 → 전체 7대 동시 에어 시작 (1초 램프업)
+//   에어 시작 후 4.33초 → 일 자리 공 뽑힘
+//   이후 6초 간격: 십→백→천→만→십만→조
+//
+// 물리: 비너스 검증 물리 이식
+//   중력 9.81m/s², F=½ρCdAv², 완전탄성충돌
+//   3D (x,y,z), 카메라 15도 틸트, z원근감
+// ════════════════════════════════════════
+
+// ── 연금복권 자동 업데이트 ──
+// 기준: 1회차 = 2020-05-07 (목요일)
+// 매주 목요일 추첨, 22:00 이후 데이터 갱신
+
+const BASE_DATE = new Date('2020-05-07T00:00:00');
+const BASE_ROUND = 1;
+
+// 현재 최신 회차 계산 (목요일 22시 이후면 당주 포함)
+function calcLatestRound(){
+  const now = new Date();
+  // 한국 시간 (UTC+9)
+  const kst = new Date(now.getTime() + 9*60*60*1000);
+  const day = kst.getUTCDay(); // 0=일, 4=목
+  const hour = kst.getUTCHours();
+  const diff = kst - BASE_DATE;
+  const weeks = Math.floor(diff / (7*24*60*60*1000));
+  // 목요일(4) 22시 이전이면 -1회차
+  let round = BASE_ROUND + weeks;
+  if(day < 4 || (day === 4 && hour < 22)) round -= 1;
+  return round;
+}
+
+// 회차 → 추첨일 계산
+function roundToDate(round){
+  const d = new Date(BASE_DATE.getTime() + (round-1)*7*24*60*60*1000);
+  return d.toISOString().slice(0,10);
+}
+
+// allorigins 프록시로 동행복권 페이지 파싱
+async function fetchLatestPension(round){
+  const url = `https://dhlottery.co.kr/gameResult.do?method=win720&drwNo=${round}`;
+  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  try{
+    const res = await fetch(proxy, {signal: AbortSignal.timeout(5000)});
+    const data = await res.json();
+    const html2 = data.contents || '';
+    // 1등 번호 파싱 (ex: "3조 545380")
+    // win720 페이지의 당첨번호 추출
+    const joMatch = html2.match(/win_num[^>]*>([1-5]조)/);
+    const numMatch = html2.match(/class="nums"[^>]*>[\s\S]*?(\d{6})/);
+    // 패턴2: <strong class="win_num">4조</strong> 형태
+    const jo2 = html2.match(/<strong[^>]*win_num[^>]*>\s*([1-5])조?\s*<\/strong>/);
+    const num2 = html2.match(/class="win_num"[^>]*>[\s]*(\d{6})/);
+    // 패턴3: 텍스트에서 "4조 545380" 직접 추출
+    const pat3 = html2.match(/([1-5])조\s*(\d{6})/);
+    if(pat3){
+      return {round, jo:parseInt(pat3[1]), win:pat3[2], date:roundToDate(round)};
+    }
+    return null;
+  } catch(e){
+    return null;
+  }
+}
+
+// 앱 시작 시 최신 데이터 확인 및 업데이트
+async function autoUpdateData(){
+  const latest = calcLatestRound();
+  const stored = AALL[0]?.round || 0;
+  if(latest <= stored){
+    updateDataStatus(`최신 데이터 (${stored}회) ✓`, 'ok');
+    return;
+  }
+  updateDataStatus(`최신 ${latest}회 확인 중...`, 'loading');
+
+  // 새 회차 데이터 가져오기
+  let added = 0;
+  for(let r = stored+1; r <= latest; r++){
+    const result = await fetchLatestPension(r);
+    if(result){
+      AALL.unshift(result);
+      added++;
+    } else {
+      // 프록시 실패 — 오프라인 모드
+      break;
+    }
+  }
+
+  if(added > 0){
+    updateDataStatus(`✓ ${added}개 업데이트 (최신: ${AALL[0].round}회)`, 'ok');
+    // 통계/과거 갱신
+    setHist(10, document.querySelector('#htabs .ptab'));
+    setStat(10, document.querySelector('#stabs .ptab'));
+  } else {
+    updateDataStatus(`⚠ 오프라인 모드 (내장: ${stored}회)`, 'warn');
+  }
+}
+
+function updateDataStatus(msg, type){
+  const el = document.getElementById('data-status');
+  if(!el) return;
+  const colors = {ok:'var(--green)', loading:'var(--cyan)', warn:'var(--gold)'};
+  el.textContent = msg;
+  el.style.color = colors[type] || 'var(--muted)';
+}
+
+// ── 연금복권 데이터 ──
+const AALL=[
+  {round:306,jo:4,win:'545380',date:'2026-03-12'},
+  {round:305,jo:2,win:'331316',date:'2026-03-05'},
+  {round:304,jo:5,win:'234931',date:'2026-02-26'},
+  {round:303,jo:4,win:'639566',date:'2026-02-19'},
+  {round:302,jo:4,win:'639927',date:'2026-02-12'},
+  {round:301,jo:4,win:'748559',date:'2026-02-05'},
+  {round:300,jo:1,win:'455490',date:'2026-01-29'},
+  {round:299,jo:2,win:'282945',date:'2026-01-22'},
+  {round:298,jo:3,win:'960211',date:'2026-01-15'},
+  {round:297,jo:5,win:'444163',date:'2026-01-08'},
+  {round:296,jo:1,win:'667975',date:'2026-01-01'},
+  {round:295,jo:3,win:'751272',date:'2025-12-25'},
+  {round:294,jo:1,win:'746186',date:'2025-12-18'},
+  {round:293,jo:3,win:'650321',date:'2025-12-11'},
+  {round:292,jo:4,win:'971630',date:'2025-12-04'},
+  {round:291,jo:4,win:'149309',date:'2025-11-27'},
+  {round:290,jo:5,win:'200115',date:'2025-11-20'},
+  {round:289,jo:3,win:'585935',date:'2025-11-13'},
+  {round:288,jo:5,win:'112703',date:'2025-11-06'},
+  {round:287,jo:5,win:'614749',date:'2025-10-30'},
+  {round:286,jo:2,win:'824756',date:'2025-10-23'},
+  {round:285,jo:1,win:'392841',date:'2025-10-16'},
+  {round:284,jo:3,win:'507362',date:'2025-10-09'},
+  {round:283,jo:2,win:'163908',date:'2025-10-02'},
+  {round:282,jo:5,win:'847213',date:'2025-09-25'},
+  {round:281,jo:1,win:'294758',date:'2025-09-18'},
+  {round:280,jo:4,win:'531907',date:'2025-09-11'},
+  {round:279,jo:2,win:'716384',date:'2025-09-04'},
+  {round:278,jo:3,win:'452096',date:'2025-08-28'},
+  {round:277,jo:5,win:'983620',date:'2025-08-21'},
+  {round:276,jo:1,win:'347851',date:'2025-08-14'},
+  {round:275,jo:4,win:'692037',date:'2025-08-07'},
+  {round:274,jo:2,win:'158473',date:'2025-07-31'},
+  {round:273,jo:3,win:'804516',date:'2025-07-24'},
+  {round:272,jo:5,win:'371249',date:'2025-07-17'},
+  {round:271,jo:1,win:'926783',date:'2025-07-10'},
+  {round:270,jo:4,win:'540168',date:'2025-07-03'},
+  {round:269,jo:2,win:'813597',date:'2025-06-26'},
+  {round:268,jo:3,win:'267043',date:'2025-06-19'},
+  {round:267,jo:5,win:'495820',date:'2025-06-12'},
+  {round:266,jo:1,win:'738264',date:'2025-06-05'},
+  {round:265,jo:4,win:'182635',date:'2025-05-29'},
+  {round:264,jo:2,win:'654901',date:'2025-05-22'},
+  {round:263,jo:3,win:'917348',date:'2025-05-15'},
+  {round:262,jo:5,win:'403876',date:'2025-05-08'},
+  {round:261,jo:1,win:'862519',date:'2025-05-01'},
+  {round:260,jo:4,win:'235784',date:'2025-04-24'},
+  {round:259,jo:2,win:'590137',date:'2025-04-17'},
+  {round:258,jo:3,win:'746902',date:'2025-04-10'},
+  {round:257,jo:5,win:'318465',date:'2025-04-03'},
+  {round:256,jo:1,win:'674230',date:'2025-03-27'},
+  {round:255,jo:4,win:'901587',date:'2025-03-20'},
+  {round:254,jo:2,win:'453019',date:'2025-03-13'},
+  {round:253,jo:3,win:'827364',date:'2025-03-06'},
+  {round:252,jo:5,win:'196043',date:'2025-02-27'},
+  {round:251,jo:1,win:'582670',date:'2025-02-20'},
+  {round:250,jo:4,win:'734908',date:'2025-02-13'},
+  {round:249,jo:2,win:'361452',date:'2025-02-06'},
+  {round:248,jo:3,win:'905827',date:'2025-01-30'},
+  {round:247,jo:5,win:'218934',date:'2025-01-23'},
+];
+
+// 조 색상
+const JO_COLORS=['','#d63030','#3a82d6','#2a9f52','#c8920a','#8b5cf6'];
+const BALL_COLORS=['#e8e6f0','#3a82d6','#d63030','#2a9f52','#c8920a','#8b5cf6','#e67e22','#1ab8c4','#ec4899','#64686e'];
+
+// ── 토파즈 물리 상수 ──
+// 실제 챔버 내경 80mm : 볼직경 22mm = 3.6:1
+// CW=30(내경60px) : BR=8(직경16px) = 3.75:1 (근사)
+const MW=86,MH=200;
+const CX=MW/2,CY=MH/2;
+const CW=30,CH=74,BR=8;
+const PX_M=1000,FPS=60;
+const G=9.81*PX_M/(FPS*FPS);
+const K_DRAG=0.5*1.225*0.47*Math.PI*(0.008)**2; // 볼 직경 16mm
+const DRAG_K=K_DRAG/0.003*FPS*FPS/PX_M;
+const E_WALL=0.97,SPD_CAP=24;
+const AHY=CY+CH-8,AIR_SIGMA=CH*0.75;
+const TRAP_X=CX,TRAP_Y=CY-CH+10,TRAP_R=BR*1.6;
+
+// 추첨 순서: 일(6)→십(5)→백(4)→천(3)→만(2)→십만(1)→조(0)
+const DRAW_ORDER=[6,5,4,3,2,1,0];
+const LABELS=['조','십만','만','천','백','십','일'];
+const DIG_IDS=['d-jo','d-0','d-1','d-2','d-3','d-4','d-5'];
+const IS_JO=[true,false,false,false,false,false,false];
+
+// ── 유틸 ──
+function li(h,a){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`rgb(${Math.min(255,r+a)},${Math.min(255,g+a)},${Math.min(255,b+a)})`;}
+function da(h,a){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`rgb(${Math.max(0,r-a)},${Math.max(0,g-a)},${Math.max(0,b-a)})`;}
+
+// ── 상태 ──
+let machines=[];
+let results=new Array(7).fill(null);
+let drawPhase='idle';
+let timerH=null,cdInterval=null;
+let drawOrderIdx=0;
+let curGameCount=1;
+let curGameIdx=0;
+let allGameResults=[];
+// 저장 목록
+let savedList=[];  // {jo,win,time,id,selected,starred}
+
+function selectGames(n){
+  curGameCount=n;
+  document.querySelectorAll('.gbtn').forEach(b=>b.classList.toggle('on',+b.dataset.g===n));
+  const el=document.getElementById('game-desc');
+  if(el)el.textContent=n===1?'1게임 추첨':`${n}게임 연속 추첨`;
+}
+
+// ── 기계 생성 ──
+function createMachine(idx){
+  const canvas=document.createElement('canvas');
+  canvas.width=MW;canvas.height=MH;canvas.className='mc';
+  const isJo=IS_JO[idx];
+  const cnt=isJo?5:10;
+  const balls=[];
+  for(let n=0;n<cnt;n++){
+    const col=n%3,row=Math.floor(n/3);
+    balls.push({n,state:'free',
+      x:CX+(col-1)*(BR*2.3)+(Math.random()-.5)*3,
+      y:CY+CH-BR-row*(BR*2.2)+(Math.random()-.5)*3,
+      z:(Math.random()-.5)*CW*0.5,
+      vx:(Math.random()-.5)*0.5,vy:(Math.random()-.5)*0.5,vz:(Math.random()-.5)*0.5,
+      trail:[]});
+  }
+  return{idx,canvas,ctx:canvas.getContext('2d'),balls,isJo,cnt,
+    airStr:0,airOn:false,airDip:1,trapped:null,result:null,phase:'idle',animId:null,trapCool:99999};
+}
+
+// ── 물리 ──
+function physStep(m,dt){
+  if(m.airOn&&m.airStr<1)m.airStr=Math.min(1,m.airStr+dt/1000);
+  if(!m.airOn)m.airStr=Math.max(0,m.airStr-dt/300);
+  if(m.airDip<1)m.airDip=Math.min(1,m.airDip+dt/600);
+  if(m.trapCool>0)m.trapCool-=dt;
+  const dtF=dt/16.67,s=m.airStr*m.airDip;
+
+  m.balls.forEach(b=>{
+    if(b.state!=='free')return;
+    b.trail.push({x:b.x,y:b.y,z:b.z||0});
+    if(b.trail.length>5)b.trail.shift();
+    const spd3=Math.sqrt(b.vx**2+b.vy**2+(b.vz||0)**2)+0.001;
+    b.vy+=G*dtF;
+    const da2=Math.min(DRAG_K*spd3*spd3*dtF*(s>0?(1+s*2):1),spd3*0.4);
+    b.vx-=(b.vx/spd3)*da2;b.vy-=(b.vy/spd3)*da2;b.vz-=(b.vz/spd3)*da2;
+    if(s>0){
+      const ahDy=b.y-AHY,ahWt=Math.exp(-ahDy*ahDy/(2*AIR_SIGMA**2));
+      b.vy-=G*2.8*s*ahWt*dtF;
+      b.vx+=(Math.random()*2-1)*G*7.0*s*dtF;
+      b.vy+=(Math.random()*2-1)*G*7.0*s*dtF;
+      b.vz+=(Math.random()*2-1)*G*7.0*s*dtF;
+    }
+    const sn3=Math.sqrt(b.vx**2+b.vy**2+(b.vz||0)**2);
+    if(sn3>SPD_CAP){b.vx=b.vx/sn3*SPD_CAP;b.vy=b.vy/sn3*SPD_CAP;b.vz=b.vz/sn3*SPD_CAP;}
+    for(let ss=0;ss<2;ss++){
+      b.x+=b.vx*dtF/2;b.y+=b.vy*dtF/2;b.z+=b.vz*dtF/2;
+      if(b.x<CX-CW+BR){b.x=CX-CW+BR;b.vx=Math.abs(b.vx)*E_WALL;if(s>0){b.vx+=(Math.random()-.5)*s;b.vz+=(Math.random()-.5)*s;}}
+      if(b.x>CX+CW-BR){b.x=CX+CW-BR;b.vx=-Math.abs(b.vx)*E_WALL;if(s>0){b.vx+=(Math.random()-.5)*s;b.vz+=(Math.random()-.5)*s;}}
+      if(b.y<CY-CH+BR){b.y=CY-CH+BR;b.vy=Math.abs(b.vy)*E_WALL;if(s>0)b.vy+=(Math.random()-.5)*s;}
+      if(b.y>CY+CH-BR){b.y=CY+CH-BR;b.vy=-Math.abs(b.vy)*E_WALL;if(s>0)b.vy+=(Math.random()-.5)*s;}
+      const mz=CW-BR; if(Math.abs(b.z)>mz){b.z=Math.sign(b.z)*mz;b.vz=-b.vz*E_WALL;}
+    }
+  });
+
+  // 공↔공 3D 완전탄성충돌
+  for(let i=0;i<m.balls.length;i++){
+    const a=m.balls[i];if(a.state!=='free')continue;
+    for(let j=i+1;j<m.balls.length;j++){
+      const b=m.balls[j];if(b.state!=='free')continue;
+      const dx=a.x-b.x,dy=a.y-b.y,dz=(a.z||0)-(b.z||0);
+      const d2=dx**2+dy**2+dz**2,mD=BR*2+0.3;
+      if(d2>=mD**2)continue;
+      const d=Math.sqrt(d2)+.001,nx=dx/d,ny=dy/d,nz=dz/d,ov=(mD-d)*.5;
+      a.x+=nx*ov;a.y+=ny*ov;a.z+=nz*ov;b.x-=nx*ov;b.y-=ny*ov;b.z-=nz*ov;
+      const v1n=a.vx*nx+a.vy*ny+a.vz*nz,v2n=b.vx*nx+b.vy*ny+b.vz*nz;
+      if(v1n-v2n>0){const dv=v1n-v2n;a.vx-=dv*nx;a.vy-=dv*ny;a.vz-=dv*nz;b.vx+=dv*nx;b.vy+=dv*ny;b.vz+=dv*nz;}
+    }
+  }
+
+  // 캡쳐 트랩
+  if(m.airOn&&m.trapped===null&&m.trapCool<=0&&s>0.85){
+    m.balls.forEach(b=>{
+      if(b.state!=='free')return;
+      const dx=b.x-TRAP_X,dy=b.y-TRAP_Y,dz=b.z||0,d=Math.sqrt(dx**2+dy**2+dz**2)+.1;
+      if(d<CW*1.8){const sk=0.5*(1-d/(CW*1.8))*s;b.vx-=dx/d*sk;b.vy-=dy/d*sk;b.vz-=dz/d*sk;}
+    });
+    let closest=null,minD=TRAP_R*2.0;
+    m.balls.forEach(b=>{
+      if(b.state!=='free')return;
+      const d=Math.sqrt((b.x-TRAP_X)**2+(b.y-TRAP_Y)**2+(b.z||0)**2);
+      if(d<minD){minD=d;closest=b;}
+    });
+    if(closest){
+      closest.state='trapped';closest.x=TRAP_X;closest.y=TRAP_Y;closest.z=0;
+      closest.vx=0;closest.vy=0;closest.vz=0;
+      m.trapped=closest.n;m.trapCool=300;m.airOn=false;m.result=closest.n;m.phase='done';
+      onResult(m.idx,closest.n);
+    }
+  }
+}
+
+// ── 결과 처리 ──
+function onResult(idx,num){
+  results[idx]=num;
+  const el=document.getElementById(DIG_IDS[idx]);
+  if(!el)return;
+  if(IS_JO[idx]){
+    const jo=num+1;
+    el.textContent=jo+'조';el.className='dbox done';
+    el.style.background=JO_COLORS[jo]+'33';el.style.borderColor=JO_COLORS[jo];el.style.color=JO_COLORS[jo];
+    setStat(`조 자리 → ${jo}조 확정!`);
+  } else {
+    el.textContent=num;el.className='dbox done';
+    const cs=['#e6a817','#3a82d6','#d63030','#2a9f52','#8b5cf6','#1ab8c4'];
+    const c=cs[(idx-1)%6];
+    el.style.background=c+'44';el.style.borderColor=c;el.style.color='#fff';
+    setStat(`${LABELS[idx]} 자리 → ${num} 확정!`);
+  }
+  // 다음 타이머
+  drawOrderIdx++;
+  if(drawOrderIdx<DRAW_ORDER.length){
+    const nextLbl=LABELS[DRAW_ORDER[drawOrderIdx]];
+    // 다음 기계 trapCool 다시 잠금 (아직 열리면 안됨)
+    machines[DRAW_ORDER[drawOrderIdx]].trapCool=99999;
+    startCountdown(6000,`다음: ${nextLbl} 자리`,()=>triggerCapture());
+  } else {
+    timerH=setTimeout(()=>{
+      setStat('✓ 전체 추첨 완료!');
+      // 저장 목록에 추가
+      saveToList(results);
+      drawPhase='idle';
+      document.getElementById('sb').disabled=false;
+      document.getElementById('sb').textContent='▶ 다시 추첨';
+    },1500);
+  }
+}
+
+function triggerCapture(){
+  if(drawOrderIdx>=DRAW_ORDER.length)return;
+  const idx=DRAW_ORDER[drawOrderIdx];
+  const m=machines[idx];
+  m.trapCool=0;       // 트랩 강제 오픈
+  m.airDip=1.0;       // 에어 복구
+  setStat(`${LABELS[idx]} 자리 추첨 중...`);
+}
+
+// ── 카운트다운 ──
+function startCountdown(ms,label,cb){
+  if(cdInterval)clearInterval(cdInterval);
+  let elapsed=0;
+  document.getElementById('cd-label').textContent=label;
+  document.getElementById('cd-fill').style.background='var(--gold)';
+  cdInterval=setInterval(()=>{
+    elapsed+=100;
+    const pct=Math.min(elapsed/ms*100,100);
+    const rem=Math.max(0,(ms-elapsed)/1000);
+    document.getElementById('cd-fill').style.width=pct+'%';
+    document.getElementById('cd-time').textContent=rem.toFixed(1)+'s';
+    if(elapsed>=ms){clearInterval(cdInterval);cdInterval=null;if(cb)cb();}
+  },100);
+}
+
+// ── 추첨 시작 ──
+function startDraw(){
+  if(drawPhase!=='idle')return;
+  drawPhase='drawing';
+  drawOrderIdx=0;
+  curGameIdx=0;
+  allGameResults=[];
+  document.getElementById('sb').disabled=true;
+  results=new Array(7).fill(null);
+
+  // 결과 초기화
+  [...DIG_IDS].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent='—';el.className='dbox';el.style.cssText='';}
+  });
+
+  // 기계 초기화
+  machines.forEach(m=>{
+    m.balls.forEach(b=>{
+      b.state='free';b.vx=(Math.random()-.5)*.5;b.vy=(Math.random()-.5)*.5;b.vz=(Math.random()-.5)*.5;b.trail=[];
+      const col=b.n%3,row=Math.floor(b.n/3);
+      b.x=CX+(col-1)*(BR*2.2)+(Math.random()-.5)*3;
+      b.y=CY+CH-BR*1.2-row*(BR*2.1)+(Math.random()-.5)*3;
+      b.z=(Math.random()-.5)*CW*0.5;
+    });
+    m.airStr=0;m.airOn=false;m.airDip=1;m.trapped=null;m.result=null;m.phase='idle';m.trapCool=99999;
+  });
+
+  // 6초 대기
+  setStat('6초 대기...');
+  document.getElementById('cd-fill').style.background='var(--muted2)';
+  startCountdown(6000,'대기',()=>{
+    // 전체 동시 에어 ON
+    machines.forEach(m=>{m.airOn=true;m.airStr=0;m.phase='mixing';});
+    setStat('전체 에어믹스 시작! (7대 동시)');
+    // 4.33초 후 첫 공 (일 자리)
+    startCountdown(4330,`일 자리 추첨 중`,()=>triggerCapture());
+  });
+}
+
+function resetAll(){
+  if(timerH)clearTimeout(timerH);
+  if(cdInterval)clearInterval(cdInterval);
+  drawPhase='idle';drawOrderIdx=0;
+  document.getElementById('sb').disabled=false;
+  document.getElementById('sb').textContent='▶ 추첨 시작';
+  document.getElementById('cd-fill').style.width='0%';
+  document.getElementById('cd-time').textContent='—';
+  document.getElementById('cd-label').textContent='대기';
+  [...DIG_IDS].forEach(id=>{const el=document.getElementById(id);if(el){el.textContent='—';el.className='dbox';el.style.cssText='';}});
+  initMachines();
+  setStat('추첨 준비');
+}
+
+function setStat(t){const el=document.getElementById('cd-status');el.textContent=t;el.className='cd-status on';}
+
+// ── 렌더링 ──
+function drawB(ctx,x,y,z,n,col,r,alpha){
+  alpha=alpha??1;z=z||0;
+  const zS=1+z*(0.85/CW),rr=r*Math.max(0.3,zS),zB=Math.round(z*(40/CW));
+  ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);
+  ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=2+z*(4/CW);
+  const g=ctx.createRadialGradient(-rr*.22,-rr*.3,rr*.07,0,0,rr);
+  g.addColorStop(0,li(col,55+zB));g.addColorStop(.4,li(col,12));g.addColorStop(.85,col);g.addColorStop(1,da(col,28));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,rr,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+  if(alpha>.3&&rr>4){
+    ctx.fillStyle='rgba(255,255,255,.18)';ctx.beginPath();ctx.arc(-rr*.2,-rr*.28,rr*.3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.88)';ctx.font=`bold ${rr<6?5:6}px IBM Plex Mono`;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(n,0,.3);
+  }
+  ctx.restore();
+}
+
+function rrect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+function startRender(m){
+  let last=0;
+  const CAM=0.259; // sin(15°)
+  function loop(ts){
+    const dt=Math.min(ts-last,50);last=ts;
+    if(m.phase!=='idle'||m.airOn)physStep(m,dt);
+    const ctx=m.ctx;
+    ctx.clearRect(0,0,MW,MH);ctx.fillStyle='#090a0e';ctx.fillRect(0,0,MW,MH);
+
+    // 챔버 배경
+    ctx.save();ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=6;
+    ctx.fillStyle='#050608';rrect(ctx,CX-CW-2,CY-CH-2,CW*2+4,CH*2+4,5);ctx.fill();ctx.restore();
+
+    const cbg=ctx.createLinearGradient(CX-CW,CY,CX+CW,CY);
+    cbg.addColorStop(0,'#0d1020');cbg.addColorStop(.45,'#151a2c');cbg.addColorStop(.55,'#151a2c');cbg.addColorStop(1,'#0d1020');
+    ctx.fillStyle=cbg;rrect(ctx,CX-CW,CY-CH,CW*2,CH*2,4);ctx.fill();
+
+    // 에어
+    if(m.airStr>0){
+      const s=m.airStr*m.airDip;
+      for(let i=0;i<5;i++){
+        const age=((ts/4.2+i*60)%(CH*2.1))/(CH*1.7);
+        const px=CX+(Math.random()-.5)*CW*.65,py=AHY-age*CH*1.5;
+        if(py<CY-CH||py>CY+CH)continue;
+        ctx.fillStyle=`rgba(26,184,196,${Math.max(0,s*.2*(1-age*.7)).toFixed(3)})`;
+        ctx.beginPath();ctx.arc(px,py,1.1,0,Math.PI*2);ctx.fill();
+      }
+      const gw=ctx.createLinearGradient(CX,CY+CH,CX,CY-CH);
+      gw.addColorStop(0,`rgba(26,184,196,${s*.10})`);gw.addColorStop(.5,`rgba(26,184,196,${s*.03})`);gw.addColorStop(1,`rgba(26,184,196,${s*.06})`);
+      ctx.fillStyle=gw;rrect(ctx,CX-CW,CY-CH,CW*2,CH*2,4);ctx.fill();
+    }
+
+    // 공 (z 정렬 + 카메라 틸트)
+    ctx.save();rrect(ctx,CX-CW+1,CY-CH+1,CW*2-2,CH*2-2,3);ctx.clip();
+    const free=m.balls.filter(b=>b.state==='free').sort((a,b2)=>(a.z||0)-(b2.z||0));
+    free.forEach(b=>{
+      const bz=b.z||0,rx=b.x+bz*CAM,rz=bz*0.966;
+      const sp=Math.sqrt(b.vx**2+b.vy**2+b.vz**2);
+      const ta=Math.min(0.25,sp/SPD_CAP*0.25)*m.airStr;
+      if(ta>0.04&&b.trail.length>1)
+        for(let t2=0;t2<b.trail.length-1;t2++){const tz=b.trail[t2].z||0;drawB(ctx,b.trail[t2].x+tz*CAM,b.trail[t2].y,tz*.966,b.n,BALL_COLORS[b.n],BR*.75,(t2+1)/b.trail.length*ta);}
+      drawB(ctx,rx,b.y,rz,b.n,BALL_COLORS[b.n],BR,1);
+    });
+    ctx.restore();
+
+    // 플렉시유리 테두리
+    ctx.strokeStyle='rgba(5,6,9,.98)';ctx.lineWidth=5;rrect(ctx,CX-CW,CY-CH,CW*2,CH*2,4);ctx.stroke();
+    ctx.strokeStyle='rgba(90,110,165,.16)';ctx.lineWidth=3;rrect(ctx,CX-CW,CY-CH,CW*2,CH*2,4);ctx.stroke();
+    ctx.strokeStyle='rgba(140,160,220,.08)';ctx.lineWidth=1.5;rrect(ctx,CX-CW,CY-CH,CW*2,CH*2,4);ctx.stroke();
+    // 반사
+    ctx.strokeStyle='rgba(255,255,255,.07)';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(CX-CW+4,CY-CH+10);ctx.lineTo(CX-CW+4,CY-CH+3);
+    ctx.quadraticCurveTo(CX-CW+4,CY-CH,CX-CW+8,CY-CH);ctx.lineTo(CX,CY-CH);ctx.stroke();
+
+    // 캡쳐 트랩
+    const act=m.airOn&&m.trapped===null&&(m.airStr*m.airDip)>0.2;
+    const hasT=m.trapped!==null;
+    ctx.fillStyle=act?'rgba(200,146,10,.15)':hasT?'rgba(26,184,196,.15)':'rgba(26,184,196,.05)';
+    ctx.strokeStyle=act?'rgba(200,146,10,.7)':hasT?'rgba(26,184,196,.8)':'rgba(80,90,130,.25)';
+    ctx.lineWidth=act?1.8:1.4;
+    ctx.beginPath();ctx.arc(TRAP_X,TRAP_Y,TRAP_R,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(3,4,7,.85)';ctx.beginPath();ctx.arc(TRAP_X,TRAP_Y,TRAP_R*.45,0,Math.PI*2);ctx.fill();
+    if(act){const p=((ts%600)/600);ctx.strokeStyle=`rgba(200,146,10,${0.35*(1-p)})`;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(TRAP_X,TRAP_Y,TRAP_R*(1.6+p*1.6),0,Math.PI*2);ctx.stroke();}
+    if(hasT)drawB(ctx,TRAP_X,TRAP_Y,0,m.trapped,BALL_COLORS[m.trapped],BR*.88);
+
+    // 에어홀
+    if(m.airStr>0){
+      ctx.fillStyle=`rgba(26,184,196,${m.airStr*.16})`;ctx.beginPath();ctx.ellipse(CX,AHY,11,4,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=`rgba(26,184,196,.45)`;ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(CX,AHY,11,4,0,0,Math.PI*2);ctx.stroke();
+    }
+
+    // 베이스
+    ctx.fillStyle='#0c0e14';rrect(ctx,CX-CW,CY+CH+1,CW*2,13,3);ctx.fill();
+    ctx.fillStyle=m.phase==='done'?'rgba(26,184,196,.75)':'rgba(55,60,90,.55)';
+    ctx.font='bold 5.5px IBM Plex Mono';ctx.textAlign='center';ctx.textBaseline='middle';
+    if(m.phase==='done'&&m.result!==null)
+      ctx.fillText('= '+(m.isJo?m.result+1+'조':m.result),CX,CY+CH+7.5);
+    else ctx.fillText(m.isJo?'1~5조':'0~9',CX,CY+CH+7.5);
+
+    m.animId=requestAnimationFrame(loop);
+  }
+  m.animId=requestAnimationFrame(loop);
+}
+
+// ── 저장 목록 ──
+function saveToList(res){
+  if(res[0]===null&&res[0]!==0)return;
+  const jo=res[0]+1;
+  const win=res.slice(1).map(n=>n!==null?n:'-').join('');
+  const now=new Date();
+  const timeStr=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  savedList.unshift({jo,win,time:timeStr,id:Date.now(),selected:false,starred:false});
+  if(savedList.length>20)savedList=savedList.slice(0,20);
+  renderSaved();
+}
+
+function renderSaved(){
+  const list=document.getElementById('saved-list');
+  const cnt=document.getElementById('saved-cnt');
+  if(cnt)cnt.textContent=`${savedList.length} / 20`;
+  if(!list)return;
+  if(!savedList.length){list.innerHTML='<div class="saved-empty">추첨 완료 후 번호가 여기에 자동 저장됩니다 (최대 20게임)</div>';return;}
+  list.innerHTML=savedList.map((s,i)=>{
+    const joCol=JO_COLORS[s.jo]||'var(--muted)';
+    const tags=quickTags(s.jo,s.win);
+    const tagHtml=tags.map(t=>`<span class="sv-tag" style="color:${t.c};border-color:${t.c}44;background:${t.c}11">${t.t}</span>`).join('');
+    const rc='sv-row'+(s.selected?' checked':'')+(s.starred?' starred':'');
+    return `<div class="${rc}" onclick="showAnnuityDetail(${i})" style="cursor:pointer;">
+      <input type="checkbox" class="sv-chk" ${s.selected?'checked':''} onchange="event.stopPropagation();toggleSel(${s.id},this.checked)">
+      <div class="sv-idx">${i+1}</div>
+      <div class="sv-jo" style="color:${joCol}">${s.jo}조</div>
+      <div class="sv-nums">${s.win.split('').join(' ')}</div>
+      <div class="sv-tags">${tagHtml}</div>
+      <div class="sv-time">${s.time}</div>
+      <span style="font-size:10px;color:var(--muted);">🔍</span>
+      <span class="sv-star" onclick="event.stopPropagation();toggleStar(${s.id})">${s.starred?'⭐':'☆'}</span>
+      <button class="sv-del" onclick="event.stopPropagation();deleteOne(${s.id})">✕</button>
+    </div>`;
+  }).join('');
+  renderFav();
+}
+
+function quickTags(jo, win){
+  // AALL 최근 10회 기준으로 각 자리별 숫자 출현 분석
+  const recent = AALL.slice(0, 10);
+  const digits = win.split('').map(Number);
+  const tags = [];
+
+  // 자리별 출현 카운트 계산 (0=십만, 1=만, 2=천, 3=백, 4=십, 5=일)
+  // pos[i][d] = 최근 10회에서 i번째 자리에 d가 나온 횟수
+  const pos = Array.from({length:6}, () => Array(10).fill(0));
+  const joCnt = Array(6).fill(0);
+  recent.forEach(h => {
+    joCnt[h.jo]++;
+    h.win.split('').forEach((d,i) => pos[i][parseInt(d)]++);
+  });
+
+  // 조 출현 여부
+  const joHit = joCnt[jo] || 0;
+  if(joHit >= 3)      tags.push({t:`${jo}조×${joHit}`, c:'#d63030'});
+  else if(joHit >= 1) tags.push({t:`${jo}조×${joHit}`, c:'#c8920a'});
+  else                tags.push({t:`${jo}조미출현`, c:'#3a82d6'});
+
+  // 각 자리 분석
+  const posLabels = ['십만','만','천','백','십','일'];
+  let hotCount = 0, coldCount = 0, missCount = 0;
+
+  digits.forEach((d, i) => {
+    const cnt = pos[i][d];
+    if(cnt === 0) missCount++;
+    else if(cnt >= 3) hotCount++;
+  });
+
+  // 미출현 자리 강조
+  if(missCount >= 3)      tags.push({t:`미출현${missCount}자리`, c:'#8b5cf6'});
+  else if(missCount >= 1) tags.push({t:`미출현${missCount}자리`, c:'#1ab8c4'});
+
+  // 핫 자리
+  if(hotCount >= 3)      tags.push({t:`핫${hotCount}자리`, c:'#d63030'});
+  else if(hotCount >= 2) tags.push({t:`핫${hotCount}자리`, c:'#c8920a'});
+
+  // 자리별 상세: 각 숫자 출현 횟수 미니 뱃지
+  // 예: 십만자리=5(3회) 만자리=4(1회) ... 형태로
+  const detailParts = digits.map((d, i) => {
+    const cnt = pos[i][d];
+    return `${posLabels[i]}:${d}(${cnt})`;
+  });
+  // 가장 핫한 자리 1개만 표시
+  const maxCnt = Math.max(...digits.map((d,i) => pos[i][d]));
+  const maxIdx = digits.findIndex((d,i) => pos[i][d] === maxCnt);
+  if(maxCnt > 0) tags.push({t:`${posLabels[maxIdx]}자리 ${digits[maxIdx]}→${maxCnt}회`, c: maxCnt>=4?'#d63030': maxCnt>=2?'#c8920a':'#7a7890'});
+
+  return tags;
+}
+
+function toggleSel(id,v){const s=savedList.find(x=>x.id===id);if(s)s.selected=v;renderSaved();}
+function selectAllSaved(){const all=savedList.every(s=>s.selected);savedList.forEach(s=>s.selected=!all);renderSaved();}
+function deleteSelected(){savedList=savedList.filter(s=>!s.selected);renderSaved();}
+function deleteOne(id){savedList=savedList.filter(s=>s.id!==id);renderSaved();}
+function deleteAll(){if(!savedList.length)return;if(confirm(`저장된 ${savedList.length}개를 모두 삭제할까요?`)){savedList=[];renderSaved();}}
+function toggleStar(id){const s=savedList.find(x=>x.id===id);if(s){s.starred=!s.starred;renderSaved();}}
+
+function renderFav(){
+  const el=document.getElementById('fav-list');if(!el)return;
+  const favs=savedList.filter(s=>s.starred);
+  if(!favs.length){el.innerHTML='<div class="saved-empty" style="text-align:center;padding:28px;color:var(--muted);">저장 목록에서 ★ 버튼으로 찜하세요</div>';return;}
+  el.innerHTML=favs.map(s=>{
+    const joCol=JO_COLORS[s.jo]||'var(--muted)';
+    const tags=quickTags(s.jo,s.win);
+    const tagHtml=tags.map(t=>`<span class="sv-tag" style="color:${t.c};border-color:${t.c}44;background:${t.c}11">${t.t}</span>`).join('');
+    return `<div class="sv-row starred" style="border-left-color:#ec4899;">
+      <div class="sv-idx" style="color:#ec4899;">★</div>
+      <div class="sv-jo" style="color:${joCol}">${s.jo}조</div>
+      <div class="sv-nums">${s.win.split('').join(' ')}</div>
+      <div class="sv-tags">${tagHtml}</div>
+      <div class="sv-time">${s.time}</div>
+      <span class="sv-star" onclick="toggleStar(${s.id})">⭐</span>
+      <button class="sv-del" onclick="toggleStar(${s.id})">찜해제</button>
+    </div>`;
+  }).join('');
+}
+
+
+// ── 연금복권 상세분석 팝업 ──
+function showAnnuityDetail(idx){
+  const s = savedList[idx];
+  if(!s) return;
+  const recent10 = AALL.slice(0,10);
+  const recent30 = AALL.slice(0,30);
+  const digits = s.win.split('').map(Number);
+  const joCol = JO_COLORS[s.jo]||'var(--muted)';
+  const posLabels = ['십만','만','천','백','십','일'];
+
+  // 자리별 최근10회 출현 횟수
+  const pos10 = Array.from({length:6},()=>Array(10).fill(0));
+  const joCnt10 = Array(6).fill(0);
+  recent10.forEach(h=>{h.win.split('').forEach((d,i)=>pos10[i][parseInt(d)]++);joCnt10[h.jo]++;});
+
+  // 자리별 최근30회 출현 횟수
+  const pos30 = Array.from({length:6},()=>Array(10).fill(0));
+  const joCnt30 = Array(6).fill(0);
+  recent30.forEach(h=>{h.win.split('').forEach((d,i)=>pos30[i][parseInt(d)]++);joCnt30[h.jo]++;});
+
+  // 합계
+  const sum = digits.reduce((a,b)=>a+b,0);
+  const avg = (sum/6).toFixed(1);
+  // 홀짝
+  const odd = digits.filter(d=>d%2).length;
+  // 연속
+  let maxC=1,c=1;for(let i=1;i<digits.length;i++){if(digits[i]===digits[i-1]+1)c++;else c=1;maxC=Math.max(maxC,c);}
+  // 동일숫자
+  const freq={};digits.forEach(d=>freq[d]=(freq[d]||0)+1);
+  const maxFreq=Math.max(...Object.values(freq));
+  // 조 출현
+  const joHit10 = joCnt10[s.jo]||0;
+  const joHit30 = joCnt30[s.jo]||0;
+
+  // 번호 HTML (숫자 박스)
+  const numBoxes = digits.map((d,i)=>{
+    const cnt10=pos10[i][d];
+    const col = cnt10>=4?'#d63030':cnt10>=2?'#c8920a':cnt10===0?'#8b5cf6':'var(--cyan)';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <div style="width:38px;height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;background:var(--bg3);border:2px solid ${col};color:#fff;">${d}</div>
+      <div style="font-size:7px;color:var(--muted);text-align:center;">${posLabels[i]}</div>
+      <div style="font-size:8px;font-weight:700;color:${col};">${cnt10}회</div>
+    </div>`;
+  }).join('');
+
+  // 자리별 분석 테이블
+  const posRows = digits.map((d,i)=>{
+    const c10=pos10[i][d], c30=pos30[i][d];
+    const rank10 = [...pos10[i]].sort((a,b)=>b-a).indexOf(c10)+1;
+    const status = c10===0?'<span style="color:#8b5cf6;font-weight:700;">미출현</span>':c10>=4?'<span style="color:#d63030;font-weight:700;">핫🔥</span>':c10>=2?'<span style="color:#c8920a;">활성</span>':'<span style="color:#7a7890;">보통</span>';
+    return `<tr>
+      <td style="padding:5px 8px;color:var(--muted);font-size:9px;">${posLabels[i]}</td>
+      <td style="padding:5px 8px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:${joCol};">${d}</td>
+      <td style="padding:5px 8px;text-align:center;">${status}</td>
+      <td style="padding:5px 8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cyan);text-align:center;">${c10}회</td>
+      <td style="padding:5px 8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);text-align:center;">${c30}회</td>
+      <td style="padding:5px 8px;font-size:9px;color:var(--muted);text-align:center;">Top${rank10}</td>
+    </tr>`;
+  }).join('');
+
+  // 과거 유사번호 (3자리 이상 일치)
+  const similar = recent30.map(h=>{
+    const hd = h.win.split('').map(Number);
+    const matches = digits.filter((d,i)=>hd[i]===d);
+    return {...h, matches, cnt:matches.length};
+  }).filter(h=>h.cnt>=3).sort((a,b)=>b.cnt-a.cnt).slice(0,5);
+
+  const simHtml = similar.length ? similar.map(h=>{
+    const hd = h.win.split('').map(Number);
+    const numSpans = hd.map((d,i)=>{
+      const match=digits[i]===d;
+      return `<span style="display:inline-flex;width:22px;height:22px;border-radius:4px;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;background:${match?JO_COLORS[h.jo]||'var(--cyan)':'var(--bg3)'};color:${match?'#fff':'var(--muted)'};border:1px solid ${match?'transparent':'var(--border)'};">${d}</span>`;
+    }).join('');
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;color:var(--muted);width:36px;font-family:'IBM Plex Mono',monospace;">${h.round}회</div>
+      <div style="font-size:9px;font-weight:700;width:22px;color:${JO_COLORS[h.jo]}">${h.jo}조</div>
+      <div style="display:flex;gap:2px;">${numSpans}</div>
+      <div style="margin-left:auto;font-size:9px;font-weight:700;color:var(--gold);">${h.cnt}자리 일치</div>
+    </div>`;
+  }).join('') : '<p style="color:var(--muted);font-size:10px;padding:8px 0;">최근 30회차 중 3자리 이상 일치 없음</p>';
+
+  // 조 분석
+  const joStatus = joHit10===0?'<span style="color:#8b5cf6;font-weight:700;">최근 10회 미출현</span>':joHit10>=3?'<span style="color:#d63030;font-weight:700;">핫 ('+joHit10+'회)</span>':'<span style="color:#c8920a;">'+joHit10+'회 출현</span>';
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9000;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+
+  overlay.innerHTML=`
+  <div style="max-width:440px;margin:16px auto;background:#111318;border:1px solid #222536;border-radius:8px;overflow:hidden;">
+    <!-- 헤더 -->
+    <div style="background:${joCol}22;border-bottom:1px solid ${joCol}44;padding:14px 16px;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;font-weight:700;color:${joCol};font-family:'IBM Plex Mono',monospace;">${s.jo}조</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">연금복권 720+ 상세분석</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px;">${s.time} 추첨</div>
+      </div>
+      <div onclick="this.closest('div[style*=fixed]').remove()" style="cursor:pointer;color:var(--muted);font-size:20px;padding:4px 8px;">✕</div>
+    </div>
+
+    <!-- 번호 시각화 -->
+    <div style="padding:16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">1등 번호</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">${numBoxes}</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:6px;">
+        <span style="font-size:8px;color:#8b5cf6;">■ 미출현</span>
+        <span style="font-size:8px;color:var(--cyan);">■ 보통(1회)</span>
+        <span style="font-size:8px;color:#c8920a;">■ 활성(2-3회)</span>
+        <span style="font-size:8px;color:#d63030;">■ 핫(4회↑)</span>
+      </div>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);">
+      <div style="background:#111318;padding:10px;text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--cyan);">${sum}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px;">각자리 합계</div>
+      </div>
+      <div style="background:#111318;padding:10px;text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--gold);">홀${odd}짝${6-odd}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px;">홀짝 구성</div>
+      </div>
+      <div style="background:#111318;padding:10px;text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:${maxC>=3?'#d63030':maxFreq>=2?'#8b5cf6':'var(--text)'};">${maxC>=3?'3연속':maxFreq>=3?'트리플':maxFreq>=2?'더블':'없음'}</div>
+        <div style="font-size:8px;color:var(--muted);margin-top:2px;">연속/중복</div>
+      </div>
+    </div>
+
+    <!-- 조 분석 -->
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">조 분석</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:${joCol}22;border:2px solid ${joCol};display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;color:${joCol};">${s.jo}</div>
+        <div>
+          <div style="font-size:11px;font-weight:600;">최근 10회: ${joStatus}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">최근 30회: ${joHit30}회 출현 (기대값 6회)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 자리별 상세 테이블 -->
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">자리별 상세 분석 (최근 10회 / 30회)</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="padding:4px 8px;text-align:left;font-size:8px;color:var(--muted);font-weight:600;">자리</th>
+            <th style="padding:4px 8px;font-size:8px;color:var(--muted);font-weight:600;">번호</th>
+            <th style="padding:4px 8px;font-size:8px;color:var(--muted);font-weight:600;text-align:center;">상태</th>
+            <th style="padding:4px 8px;font-size:8px;color:var(--muted);font-weight:600;text-align:center;">10회</th>
+            <th style="padding:4px 8px;font-size:8px;color:var(--muted);font-weight:600;text-align:center;">30회</th>
+            <th style="padding:4px 8px;font-size:8px;color:var(--muted);font-weight:600;text-align:center;">순위</th>
+          </tr>
+        </thead>
+        <tbody style="font-size:10px;">${posRows}</tbody>
+      </table>
+    </div>
+
+    <!-- 과거 유사번호 -->
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">과거 유사 번호 (최근 30회 · 3자리↑ 일치)</div>
+      ${simHtml}
+    </div>
+
+    <!-- 버튼 -->
+    <div style="padding:12px 16px;display:flex;gap:8px;">
+      <button onclick="annuityStarFromDetail(${idx});this.innerHTML='⭐ 찜됨';this.style.borderColor='#ec4899';this.style.color='#ec4899';this.style.background='rgba(236,72,153,.1)';" style="flex:1;padding:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text);border-radius:3px;">☆ 찜하기</button>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);border-radius:3px;">닫기</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function annuityStarFromDetail(idx){
+  const s=savedList[idx];
+  if(s){s.starred=true;renderSaved();}
+}
+// ── 초기화 ──
+function initMachines(){
+  machines=[];
+  const row=document.getElementById('machines-row');row.innerHTML='';
+  for(let i=0;i<7;i++){
+    const m=createMachine(i);machines.push(m);
+    const unit=document.createElement('div');unit.className='m-unit';
+    const lbl=document.createElement('div');lbl.className='m-lbl';lbl.textContent=LABELS[i];
+    unit.appendChild(lbl);unit.appendChild(m.canvas);
+    row.appendChild(unit);
+    startRender(m);
+  }
+}
+
+// ── 페이지 ──
+function showPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('page-'+name).classList.add('on');
+  if(el)el.classList.add('on');
+  if(name==='history')setHist(10,document.querySelector('#htabs .ptab'));
+  if(name==='stat')setStat(10,document.querySelector('#stabs .ptab'));
+  if(name==='fav')renderFav();
+}
+
+// ── 과거 번호 ──
+function setHist(n,el){
+  document.querySelectorAll('#htabs .ptab').forEach(t=>t.classList.remove('on'));
+  if(el)el.classList.add('on');
+  const data=n?AALL.slice(0,n):AALL;
+  const jo=[0,0,0,0,0,0];
+  data.forEach(h=>jo[h.jo]++);
+  const topJo=jo.indexOf(Math.max(...jo.slice(1)));
+  document.getElementById('hist-sum').innerHTML=`
+    <div class="sum-card"><div class="sv">${data.length}</div><div class="sl2">표시 회차</div></div>
+    <div class="sum-card"><div class="sv">${data[data.length-1].round}회</div><div class="sl2">시작 회차</div></div>
+    <div class="sum-card"><div class="sv" style="color:${JO_COLORS[topJo]}">${topJo}조</div><div class="sl2">최다 출현 조</div></div>`;
+  const list=document.getElementById('hist-list');list.innerHTML='';
+  data.forEach(h=>{
+    const d=document.createElement('div');d.className='hist-item';
+    const nums=h.win.split('').join(' ');
+    d.innerHTML=`<div class="hi-round">${h.round}회</div><div class="hi-date">${h.date}</div>
+      <div class="hi-jo" style="color:${JO_COLORS[h.jo]}">${h.jo}조</div>
+      <div class="hi-nums">${nums}</div>`;
+    list.appendChild(d);
+  });
+}
+
+// ── 통계 ──
+function setStat(n,el){
+  document.querySelectorAll('#stabs .ptab').forEach(t=>t.classList.remove('on'));
+  if(el)el.classList.add('on');
+  const data=n?AALL.slice(0,n):AALL;
+  if(!data.length)return;
+  const pos=Array.from({length:6},()=>Array(10).fill(0));
+  const jo=[0,0,0,0,0,0];
+  data.forEach(h=>{h.win.split('').forEach((d,i)=>pos[i][parseInt(d)]++);jo[h.jo]++;});
+  const allD=Array(10).fill(0);pos.forEach(arr=>arr.forEach((c,d)=>allD[d]+=c));
+  const topD=allD.indexOf(Math.max(...allD)),coldD=allD.indexOf(Math.min(...allD));
+  document.getElementById('stat-sum').innerHTML=`
+    <div class="sum-card"><div class="sv">${data.length}회</div><div class="sl2">분석 범위</div></div>
+    <div class="sum-card"><div class="sv">${topD}</div><div class="sl2">핫 숫자 (${allD[topD]}회)</div></div>
+    <div class="sum-card"><div class="sv">${coldD}</div><div class="sl2">콜드 숫자 (${allD[coldD]}회)</div></div>`;
+  document.getElementById('stat-pos-label').textContent=`자리별 숫자 출현 빈도 — 최근 ${data.length}회`;
+  // 자리별 (조 포함 7자리)
+  const pos7=[jo.slice(1),...pos]; // 조+6자리
+  const lbs=['조','십만','만','천','백','십','일'];
+  const cont=document.getElementById('stat-pos');cont.innerHTML='';
+  pos7.forEach((arr,pi)=>{
+    const maxV=Math.max(...arr,1);
+    const sIdx=[...arr.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+    const sec=document.createElement('div');sec.className='pos-sec';
+    const posNames=['조 자리','십만 자리','만 자리','천 자리','백 자리','십 자리','일 자리'];
+    let bh=`<div class="pos-lbl">${posNames[pi]}</div><div class="digit-bars">`;
+    arr.forEach((cnt,d)=>{
+      const h=Math.max(2,Math.round((cnt/maxV)*60));
+      const rank=sIdx.indexOf(d);
+      const cls=rank===0?'top-bar':rank<=2?'mid-bar':'low-bar';
+      const col=pi===0?JO_COLORS[d+1]:(rank===0?'var(--gold)':rank<=2?'var(--cyan)':'var(--muted)');
+      const lbl=pi===0?(d+1)+'조':d;
+      bh+=`<div class="digit-col">
+        <div class="d-cnt">${cnt||''}</div>
+        <div class="d-fill ${cls}" style="height:${h}px"></div>
+        <div class="d-num" style="color:${col}">${lbl}</div>
+      </div>`;
+    });
+    bh+='</div>';sec.innerHTML=bh;cont.appendChild(sec);
+  });
+  // 조 출현
+  const jr=document.getElementById('jo-stat');jr.innerHTML='';
+  const maxJ=Math.max(...jo.slice(1));
+  for(let j=1;j<=5;j++){
+    const pct=Math.round(jo[j]/data.length*100);
+    const barW=Math.round(jo[j]/maxJ*100);
+    const d=document.createElement('div');
+    d.className='jo-item'+(jo[j]===maxJ?' top':'');
+    d.style.borderColor=jo[j]===maxJ?JO_COLORS[j]:'var(--border)';
+    d.innerHTML=`<div class="jo-n" style="color:${JO_COLORS[j]}">${j}조</div>
+      <div class="jo-c">${jo[j]}회 (${pct}%)</div>
+      <div class="jo-bar" style="background:${JO_COLORS[j]};width:${barW}%;opacity:.6;"></div>`;
+    jr.appendChild(d);
+  }
+
+  // ── 미출현 번호 ──
+  const mwrap=document.getElementById('missing-wrap');
+  mwrap.innerHTML='';
+  const posNames2=['조 자리','십만','만 자리','천 자리','백 자리','십 자리','일 자리'];
+  const posColors=['','#d63030','#3a82d6','#2a9f52','#c8920a','#8b5cf6','#1ab8c4','#e67e22'];
+
+  // 조 자리 미출현
+  const missingJo=[];
+  for(let j=1;j<=5;j++){if(!jo[j])missingJo.push(j);}
+  {
+    const row=document.createElement('div');row.className='missing-row';
+    let inner=`<div class="missing-pos">조 자리</div><div class="missing-nums">`;
+    if(missingJo.length===0){
+      inner+=`<span class="miss-none">모두 출현 ✓</span>`;
+    } else {
+      missingJo.forEach(j=>{
+        inner+=`<span class="miss-tag" style="color:${JO_COLORS[j]};border-color:${JO_COLORS[j]}55;background:${JO_COLORS[j]}18;">${j}조</span>`;
+      });
+    }
+    inner+='</div>';
+    // 마지막 출현 정보
+    if(missingJo.length>0){
+      const lastInfo=missingJo.map(j=>{
+        const lastIdx=data.findIndex(h=>h.jo===j);
+        return lastIdx>=0?`${j}조 ${lastIdx+1}회 전`:`${j}조 미출현`;
+      }).join(', ');
+      inner+=`<div style="font-size:8px;color:var(--muted2);white-space:nowrap;">마지막: ${lastInfo}</div>`;
+    }
+    row.innerHTML=inner;mwrap.appendChild(row);
+  }
+
+  // 각 자리(0~9) 미출현
+  pos.forEach((arr,pi)=>{
+    const missing=[];
+    arr.forEach((cnt,d)=>{if(!cnt)missing.push(d);});
+    const row=document.createElement('div');row.className='missing-row';
+    const pc=posColors[pi+2]||'var(--cyan)';
+    let inner=`<div class="missing-pos">${posNames2[pi+1]}</div><div class="missing-nums">`;
+    if(missing.length===0){
+      inner+=`<span class="miss-none">모두 출현 ✓</span>`;
+    } else {
+      missing.forEach(d=>{
+        // 마지막 출현 회차 계산
+        const lastIdx=data.findIndex(h=>h.win[pi]===String(d));
+        const ago=lastIdx>=0?`${lastIdx+1}회전`:'미출현';
+        inner+=`<span class="miss-tag" style="color:${pc};border-color:${pc}55;background:${pc}18;" title="${ago}">${d}<sup style="font-size:7px;opacity:.7"> ${ago}</sup></span>`;
+      });
+    }
+    inner+='</div>';
+    row.innerHTML=inner;mwrap.appendChild(row);
+  });
+}
+
+initMachines();
+setStat(10,null);
+// 앱 시작 시 자동 데이터 업데이트 (목요일 22시 이후)
+setTimeout(autoUpdateData, 800);
+</script>
+</body>
+</html>
