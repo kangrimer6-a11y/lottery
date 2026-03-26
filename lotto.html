@@ -356,6 +356,23 @@ canvas{display:block;width:100%;height:auto;}
 </div>
 
 <script>
+
+// ── localStorage 영구 저장 ──
+function saveLottoStorage(){
+  try{
+    // starred 항목만 영구 보존, 전체도 저장
+    localStorage.setItem('lotto_saved', JSON.stringify(savedList));
+  }catch(e){}
+}
+function loadLottoStorage(){
+  try{
+    const raw = localStorage.getItem('lotto_saved');
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr)) savedList = arr;
+    }
+  }catch(e){}
+}
 // ═══════════════════════════════════════════════
 // 로또 데이터
 // ═══════════════════════════════════════════════
@@ -1590,7 +1607,7 @@ function showPage(name){
 function toggleStar(id){
   id=Number(id);
   const s=savedList.find(x=>x.id===id);
-  if(s){s.starred=!s.starred;renderSaved();renderFav();}
+  if(s){s.starred=!s.starred;renderSaved();renderFav();saveLottoStorage();}
 }
 function renderFav(){
   const el=document.getElementById('fav-list');if(!el)return;
@@ -1623,6 +1640,7 @@ function renderFav(){
   el.innerHTML=out;
 }
 function initUI(){
+  loadLottoStorage();
   renderHolders();
   setHist(20,document.querySelector('#htabs .ptab'));
   setLottoStat(20,document.querySelector('#stabs .ptab'));

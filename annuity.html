@@ -275,6 +275,53 @@ canvas.mc{display:block;}
 </div>
 
 <script>
+
+// ── localStorage 영구 저장 ──
+function saveAnnuityStorage(){
+  try{
+    localStorage.setItem('annuity_saved', JSON.stringify(savedList));
+  }catch(e){}
+}
+function loadAnnuityStorage(){
+  try{
+    const raw = localStorage.getItem('annuity_saved');
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr)) savedList = arr;
+    }
+  }catch(e){}
+}
+
+// ── 연금복권 수동 당첨번호 입력 ──
+function addAnnuityEntry(){
+  const round = parseInt(document.getElementById('ann-round').value);
+  const joSel = document.getElementById('ann-jo').value;
+  const jo = parseInt(joSel.replace('조',''));
+  const win = document.getElementById('ann-win').value.trim().replace(/\s/g,'');
+  const date = document.getElementById('ann-date').value.trim() || new Date().toISOString().slice(0,10);
+  const msg = document.getElementById('ann-inp-msg');
+  if(!msg) return;
+
+  if(!round||round<1){msg.style.color='var(--red)';msg.textContent='⚠ 회차를 입력하세요';return;}
+  if(!/^\d{6}$/.test(win)){msg.style.color='var(--red)';msg.textContent='⚠ 6자리 숫자를 입력하세요 (현재: '+win.length+'자리)';return;}
+
+  const exists = AALL.find(function(h){return h.round===round;});
+  if(exists){msg.style.color='var(--red)';msg.textContent='⚠ '+round+'회는 이미 등록됐어요';return;}
+
+  AALL.unshift({round:round, jo:jo, win:win, date:date});
+  AALL.sort(function(a,b){return b.round-a.round;});
+
+  document.getElementById('ann-round').value = round+1;
+  document.getElementById('ann-win').value = '';
+
+  msg.style.color='var(--cyan)';
+  msg.textContent='✓ '+round+'회 ('+jo+'조 '+win+') 추가! (총 '+AALL.length+'회차)';
+
+  var firstTab = document.querySelector('#htabs .ptab');
+  if(firstTab) setHist(10, firstTab);
+  setTimeout(function(){if(msg)msg.textContent='';}, 3000);
+}
+
 // ════════════════════════════════════════
 // 연금복권 720+ 토파즈 시뮬레이터 v3
 //
@@ -611,14 +658,43 @@ function onResult(idx,num){
     machines[DRAW_ORDER[drawOrderIdx]].trapCool=99999;
     startCountdown(6000,`다음: ${nextLbl} 자리`,()=>triggerCapture());
   } else {
-    timerH=setTimeout(()=>{
-      setStat('✓ 전체 추첨 완료!');
-      // 저장 목록에 추가
-      saveToList(results);
-      drawPhase='idle';
-      document.getElementById('sb').disabled=false;
-      document.getElementById('sb').textContent='▶ 다시 추첨';
-    },1500);
+    // 1게임 완료 → 다음 게임 or 종료
+    allGameResults.push([...results]);
+    saveToList(results);
+    curGameIdx++;
+    if(curGameIdx < curGameCount){
+      // 다음 게임 시작
+      timerH=setTimeout(()=>{
+        setStat(`게임 ${curGameIdx+1}/${curGameCount} 시작...`);
+        drawOrderIdx=0;
+        results=new Array(7).fill(null);
+        [...DIG_IDS].forEach(id=>{
+          const el=document.getElementById(id);
+          if(el){el.textContent='—';el.className='dbox';el.style.cssText='';}
+        });
+        machines.forEach(m=>{
+          m.balls.forEach(b=>{
+            b.state='free';b.vx=(Math.random()-.5)*.5;b.vy=(Math.random()-.5)*.5;b.vz=(Math.random()-.5)*.5;b.trail=[];
+            const col=b.n%3,row=Math.floor(b.n/3);
+            b.x=CX+(col-1)*(BR*2.2)+(Math.random()-.5)*3;
+            b.y=CY+CH-BR*1.2-row*(BR*2.1)+(Math.random()-.5)*3;
+            b.z=(Math.random()-.5)*CW*0.5;
+          });
+          m.airStr=0;m.airOn=false;m.airDip=1;m.trapped=null;m.result=null;m.phase='idle';m.trapCool=99999;
+        });
+        // 바로 에어 시작 (대기 없이)
+        machines.forEach(m=>{m.airOn=true;m.airStr=0;m.phase='mixing';});
+        startCountdown(4330,`게임${curGameIdx+1} — 일 자리`,()=>triggerCapture());
+      },2000);
+    } else {
+      // 전체 완료
+      timerH=setTimeout(()=>{
+        setStat('✓ '+curGameCount+'게임 전체 완료!');
+        drawPhase='idle';
+        document.getElementById('sb').disabled=false;
+        document.getElementById('sb').textContent='▶ 추첨 시작';
+      },1500);
+    }
   }
 }
 
@@ -1110,6 +1186,7 @@ function annuityStarFromDetail(idx){
 }
 // ── 초기화 ──
 function initMachines(){
+  loadAnnuityStorage();
   machines=[];
   const row=document.getElementById('machines-row');row.innerHTML='';
   for(let i=0;i<7;i++){
